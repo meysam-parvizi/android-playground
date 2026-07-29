@@ -1,0 +1,75 @@
+name: Build tap-counter
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "apps/tap-counter/**"
+      - ".github/workflows/tap-counter.yml"
+    tags:
+      - "tap-counter-v*"
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "apps/tap-counter/**"
+      - ".github/workflows/tap-counter.yml"
+  workflow_dispatch:
+
+# Each app under apps/ is an independent Gradle project. This workflow only
+# builds tap-counter; future apps get their own workflow with their own paths
+# filter, so they build independently of one another.
+defaults:
+  run:
+    working-directory: apps/tap-counter
+
+permissions:
+  contents: write   # needed to create a Release on tag push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Grant execute permission to gradlew
+        run: chmod +x ./gradlew
+
+      - name: Build debug APK
+        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Rename APK with version
+        id: apk
+        run: |
+          VERSION_NAME=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts)
+          SRC=app/build/outputs/apk/debug/app-debug.apk
+          OUT="tap-counter-v${VERSION_NAME}.apk"
+          cp "$SRC" "$OUT"
+          echo "version=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "apk_path=apps/tap-counter/$OUT" >> "$GITHUB_OUTPUT"
+          echo "apk_name=$OUT" >> "$GITHUB_OUTPUT"
+          ls -la "$OUT"
+
+      - name: Upload APK artifact (every build)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.apk.outputs.apk_name }}
+          path: ${{ steps.apk.outputs.apk_path }}
+          if-no-files-found: error
+
+      - name: Publish GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/tap-counter-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "tap-counter ${{ github.ref_name }}"
+          files: ${{ steps.apk.outputs.apk_path }}
+          generate_release_notes: true
