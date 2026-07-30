@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CF Scanner</string>
+
+    <string name="label_count">تعداد آی‌پی برای اسکن</string>
+    <string name="label_sort">مرتب‌سازی بر اساس</string>
+    <string name="label_iran_mode">حالت ایران (تست پایداری و WebSocket)</string>
+    <string name="label_results">نتایج (بهترین در بالا)</string>
+
+    <string name="action_scan">شروع اسکن</string>
+    <string name="action_stop">توقف</string>
+    <string name="action_copy">کپی</string>
+
+    <string name="status_idle">آماده. برای شروع دکمه اسکن را بزنید.</string>
+    <string name="status_scanning">در حال اسکن…</string>
+    <string name="status_progress">بررسی‌شده %1$d از %2$d · سالم: %3$d</string>
+    <string name="status_done">پایان. %1$d آی‌پی بررسی شد، %2$d سالم بود.</string>
+    <string name="status_stopped">اسکن متوقف شد.</string>
+    <string name="status_error">خطا در اسکن. اتصال اینترنت را بررسی کنید.</string>
+
+    <string name="toast_copied">لیست در کلیپ‌بورد کپی شد</string>
+    <string name="toast_nothing">هنوز نتیجه‌ای پیدا نشده</string>
+</resources>

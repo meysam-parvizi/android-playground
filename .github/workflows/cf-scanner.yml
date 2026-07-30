@@ -1,0 +1,85 @@
+name: Build cf-scanner
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "apps/cf-scanner/**"
+      - ".github/workflows/cf-scanner.yml"
+    tags:
+      - "cf-scanner-v*"
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "apps/cf-scanner/**"
+      - ".github/workflows/cf-scanner.yml"
+  workflow_dispatch:
+
+# Each app under apps/ is an independent Gradle project. This workflow builds
+# only cf-scanner; other apps have their own workflows and tag prefixes.
+defaults:
+  run:
+    working-directory: apps/cf-scanner
+
+permissions:
+  contents: write   # needed to create a Release on tag push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Grant execute permission to gradlew
+        run: chmod +x ./gradlew
+
+      - name: Run unit tests (ranking and CIDR logic)
+        run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
+
+      - name: Upload test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cf-scanner-test-report
+          path: apps/cf-scanner/app/build/reports/tests/
+          if-no-files-found: ignore
+
+      - name: Build debug APK
+        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Rename APK with version
+        id: apk
+        run: |
+          VERSION_NAME=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts)
+          SRC=app/build/outputs/apk/debug/app-debug.apk
+          OUT="cf-scanner-v${VERSION_NAME}.apk"
+          cp "$SRC" "$OUT"
+          echo "version=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "apk_path=apps/cf-scanner/$OUT" >> "$GITHUB_OUTPUT"
+          echo "apk_name=$OUT" >> "$GITHUB_OUTPUT"
+          ls -la "$OUT"
+
+      - name: Upload APK artifact (every build)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.apk.outputs.apk_name }}
+          path: ${{ steps.apk.outputs.apk_path }}
+          if-no-files-found: error
+
+      - name: Publish GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/cf-scanner-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "cf-scanner ${{ github.ref_name }}"
+          files: ${{ steps.apk.outputs.apk_path }}
+          generate_release_notes: true
