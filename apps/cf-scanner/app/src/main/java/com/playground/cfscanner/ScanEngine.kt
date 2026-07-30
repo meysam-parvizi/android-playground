@@ -3,6 +3,8 @@ package com.playground.cfscanner
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -10,20 +12,29 @@ import kotlinx.coroutines.withContext
 import java.util.Collections
 import java.util.Random
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 
 /** Tunable scan parameters, surfaced in the UI. */
 data class ScanConfig(
     val targetCount: Int = 300,
-    val concurrency: Int = 24,
+    val concurrency: Int = 16,
     val port: Int = 443,
     val tries: Int = 3,
     val timeoutMs: Int = 4000,
     val idleHoldMs: Int = 2500,
     val testWebSocket: Boolean = true,
-    /** Bias sampling toward ranges that behave better from Iran. */
+    /** Bias sampling toward ranges that behave better on filtered networks. */
     val preferIranFriendlyRanges: Boolean = true,
     /** After a healthy hit, also probe its immediate neighbours. */
     val expandNeighbors: Boolean = true,
+    /**
+     * Minimum gap between progress callbacks, in milliseconds.
+     *
+     * Without throttling, hundreds of probes per second each trigger a UI
+     * update; the main thread cannot keep up and Android raises an ANR. The
+     * scan is long-running, so refreshing a few times a second is plenty.
+     */
+    val progressThrottleMs: Long = 150,
 )
 
 /** Live progress pushed to the UI. */
@@ -37,6 +48,9 @@ data class ScanProgress(
 /**
  * Drives the scan: samples candidate IPs, probes them concurrently, and reports
  * progress and results as they arrive.
+ *
+ * Probing happens on [Dispatchers.IO]; callbacks are always delivered on
+ * [Dispatchers.Main] so callers can touch views directly and safely.
  */
 class ScanEngine(private val config: ScanConfig = ScanConfig()) {
 
@@ -45,14 +59,14 @@ class ScanEngine(private val config: ScanConfig = ScanConfig()) {
     /**
      * Runs the scan.
      *
-     * @param onProgress called on the main thread as probes complete
-     * @param onResult   called on the main thread for each healthy IP found
-     * @return every result gathered, healthy or not
+     * @param onProgress invoked on the main thread, rate-limited
+     * @param onResult   invoked on the main thread for each healthy IP found
+     * @return every result gathered, healthy or not, ranked best-first
      */
     suspend fun scan(
         onProgress: suspend (ScanProgress) -> Unit,
         onResult: suspend (ScanResult) -> Unit,
-    ): List<ScanResult> = withContext(Dispatchers.IO) {
+    ): List<ScanResult> {
         val prober = Prober(
             timeoutMs = config.timeoutMs,
             idleHoldMs = config.idleHoldMs,
@@ -63,29 +77,34 @@ class ScanEngine(private val config: ScanConfig = ScanConfig()) {
         val probed = AtomicInteger(0)
         val healthyCount = AtomicInteger(0)
         val seen = Collections.synchronizedSet(mutableSetOf<String>())
+        val lastProgressAt = AtomicLong(0)
 
-        val candidates = sampleIps(config.targetCount)
-        // Extra slots reserved for neighbour expansion of successful hits.
+        val candidates = withContext(Dispatchers.Default) { sampleIps(config.targetCount) }
         val total = candidates.size
-
         val gate = Semaphore(config.concurrency)
 
         coroutineScope {
             for (ip in candidates) {
-                launch {
+                launch(Dispatchers.IO) {
                     gate.withPermit {
+                        currentCoroutineContext().ensureActive()
                         if (!seen.add(ip)) return@withPermit
-                        val r = probeAndReport(prober, ip, results, probed, healthyCount, total, onProgress, onResult)
+
+                        val r = probeAndReport(
+                            prober, ip, results, probed, healthyCount, total,
+                            lastProgressAt, onProgress, onResult,
+                        )
 
                         // Neighbour expansion: Cloudflare edges cluster, so the
                         // addresses beside a working IP are unusually likely to
                         // work too. Cheap, high-yield optimisation.
                         if (config.expandNeighbors && r.isHealthy()) {
                             for (neighbor in neighborsOf(ip)) {
+                                currentCoroutineContext().ensureActive()
                                 if (seen.add(neighbor)) {
                                     probeAndReport(
                                         prober, neighbor, results, probed, healthyCount,
-                                        total, onProgress, onResult,
+                                        total, lastProgressAt, onProgress, onResult,
                                     )
                                 }
                             }
@@ -95,7 +114,14 @@ class ScanEngine(private val config: ScanConfig = ScanConfig()) {
             }
         }
 
-        Ranking.sort(results.toList(), SortBy.SCORE)
+        // Final progress tick so the UI never ends stuck mid-way.
+        withContext(Dispatchers.Main) {
+            onProgress(ScanProgress(probed.get(), total, healthyCount.get(), ""))
+        }
+
+        return withContext(Dispatchers.Default) {
+            Ranking.sort(results.toList(), SortBy.SCORE)
+        }
     }
 
     private suspend fun probeAndReport(
@@ -105,6 +131,7 @@ class ScanEngine(private val config: ScanConfig = ScanConfig()) {
         probed: AtomicInteger,
         healthyCount: AtomicInteger,
         total: Int,
+        lastProgressAt: AtomicLong,
         onProgress: suspend (ScanProgress) -> Unit,
         onResult: suspend (ScanResult) -> Unit,
     ): ScanResult {
@@ -118,11 +145,25 @@ class ScanEngine(private val config: ScanConfig = ScanConfig()) {
 
         results.add(r)
         val done = probed.incrementAndGet()
+
+        // A healthy hit is rare and important, so it is never throttled away.
         if (r.isHealthy()) {
             healthyCount.incrementAndGet()
-            onResult(r)
+            withContext(Dispatchers.Main) { onResult(r) }
         }
-        onProgress(ScanProgress(done, total, healthyCount.get(), ip))
+
+        // Progress is throttled: this fires hundreds of times per second
+        // otherwise and starves the main thread.
+        val now = System.currentTimeMillis()
+        val previous = lastProgressAt.get()
+        val isLast = done >= total
+        if (isLast || now - previous >= config.progressThrottleMs) {
+            if (lastProgressAt.compareAndSet(previous, now)) {
+                withContext(Dispatchers.Main) {
+                    onProgress(ScanProgress(done, total, healthyCount.get(), ip))
+                }
+            }
+        }
         return r
     }
 
@@ -130,9 +171,9 @@ class ScanEngine(private val config: ScanConfig = ScanConfig()) {
      * Picks random candidate addresses from Cloudflare's ranges.
      *
      * Sampling is weighted: when [ScanConfig.preferIranFriendlyRanges] is on,
-     * 70% of candidates come from the blocks that historically work better from
-     * Iran, and 30% from the full list so unusual-but-good edges are still
-     * discovered.
+     * 70% of candidates come from blocks that historically work better on
+     * filtered networks, and 30% from the full list so unusual-but-good edges
+     * are still discovered.
      */
     fun sampleIps(count: Int): List<String> {
         val all = CloudflareRanges.parseAll(CloudflareRanges.V4)

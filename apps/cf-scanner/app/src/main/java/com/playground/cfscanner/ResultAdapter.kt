@@ -17,6 +17,14 @@ class ResultAdapter : RecyclerView.Adapter<ResultAdapter.Holder>() {
         val detail: TextView = view.findViewById(R.id.rowDetail)
     }
 
+    /**
+     * Replaces the visible list.
+     *
+     * Callers pass an already-sorted list computed off the main thread; this
+     * method only swaps it in and refreshes. The list is short (tens of rows),
+     * so a full refresh is cheap — the expensive part was the sorting, which no
+     * longer happens here.
+     */
     fun submit(newItems: List<ScanResult>) {
         items.clear()
         items.addAll(newItems)
@@ -24,8 +32,9 @@ class ResultAdapter : RecyclerView.Adapter<ResultAdapter.Holder>() {
     }
 
     fun clear() {
+        val had = items.size
         items.clear()
-        notifyDataSetChanged()
+        if (had > 0) notifyItemRangeRemoved(0, had)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
@@ -66,7 +75,7 @@ class ResultAdapter : RecyclerView.Adapter<ResultAdapter.Holder>() {
 
     override fun getItemCount(): Int = items.size
 
-    /** Plain-text export of the current list, newest ranking first. */
+    /** Plain-text export of the current list, in the order shown. */
     fun exportText(): String = buildString {
         appendLine("# Clean Cloudflare IPs — CF Scanner")
         appendLine("# score/100 | avg ms | jitter ms | loss % | colo")

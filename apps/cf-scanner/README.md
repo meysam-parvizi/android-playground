@@ -62,6 +62,20 @@ One screen:
 - Live progress, results appearing as they are found, colour-coded by grade
 - **Copy** exports the ranked list as text with the metrics as comments
 
+## Threading
+
+The scan is entirely off the main thread, and this is load-bearing rather than incidental:
+
+- Probing runs on `Dispatchers.IO`, bounded by a semaphore (default 16 concurrent).
+- Every wait uses `delay`, never `Thread.sleep`. Blocking a dispatcher thread starves the pool, and `Thread.sleep` is not cancellable, so Stop would not work.
+- `onProgress` / `onResult` are always dispatched on `Dispatchers.Main`, so the UI layer can touch views from them directly and safely.
+- Progress callbacks are throttled (default 150 ms). Unthrottled, hundreds of completions per second flood the main thread and Android raises an ANR.
+- Ranking runs on `Dispatchers.Default`, not in the callback.
+
+`ScanEngineTest` asserts each of these — callback thread, throttling, prompt cancellation, and non-overlapping callbacks.
+
+Version 0.0.2 fixes a freeze where starting a scan made the app unresponsive: callbacks mutated views from `Dispatchers.IO`, progress was unthrottled, `Thread.sleep` starved the IO pool, and the liveness check used `sendUrgentData`, which most Android devices reject — so no IP was ever reported healthy.
+
 ## Build
 
 Self-contained Gradle project. From this directory:
@@ -78,7 +92,7 @@ Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner
 - Every push/PR touching `apps/cf-scanner/**` runs the unit tests, builds the APK, and uploads it as an artifact
 - Pushing a tag `cf-scanner-v<version>` publishes the APK as a GitHub Release asset
 
-Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.0.1**.
+Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.0.2**.
 
 ## Details
 

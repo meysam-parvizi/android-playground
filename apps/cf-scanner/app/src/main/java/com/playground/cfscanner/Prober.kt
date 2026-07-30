@@ -1,11 +1,20 @@
 package com.playground.cfscanner
 
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.net.SocketException
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
+import javax.net.ssl.SNIHostName
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.SSLSocketFactory
@@ -14,17 +23,20 @@ import javax.net.ssl.X509TrustManager
 /**
  * Probes a single IP to decide whether it is a genuinely usable Cloudflare edge.
  *
- * Why this is more than a ping: from Iranian ISPs an IP routinely passes a bare
- * TCP connect, and often even a full TLS handshake, and is then reset by DPI a
- * few seconds later. A naive scanner reports such an IP as excellent. This
- * prober therefore runs a staged check and only trusts an IP that survives all
- * of it.
+ * Why this is more than a ping: from restrictive networks an IP routinely passes
+ * a bare TCP connect, and often even a full TLS handshake, and is then reset by
+ * DPI a few seconds later. A naive scanner reports such an IP as excellent. This
+ * prober runs a staged check and only trusts an IP that survives all of it.
+ *
+ * Every blocking socket call runs on [Dispatchers.IO] and every wait uses
+ * `delay`, never `Thread.sleep` — blocking the dispatcher threads starves the
+ * pool and freezes the whole app.
  */
 class Prober(
     private val timeoutMs: Int = 4000,
     /**
      * How long to hold an established connection idle, watching for a DPI reset.
-     * This is the single most important test for Iranian networks.
+     * This is the single most important test on filtered networks.
      */
     private val idleHoldMs: Int = 2500,
     private val testWebSocket: Boolean = true,
@@ -45,11 +57,10 @@ class Prober(
     /**
      * Permissive trust manager.
      *
-     * We are connecting to a raw IP, so the certificate will never match the
-     * SNI hostname we send. Certificate identity is irrelevant here: the goal is
-     * to measure whether the transport works, and edge identity is confirmed
-     * separately via /cdn-cgi/trace. This socket factory is used ONLY for
-     * probing and never for carrying user data.
+     * We connect to a raw IP, so the certificate can never match the SNI we
+     * send. Certificate identity is irrelevant here: the goal is to measure
+     * whether the transport works, and edge identity is confirmed separately via
+     * /cdn-cgi/trace. Used ONLY for probing; this app carries no user data.
      */
     private val probeSocketFactory: SSLSocketFactory by lazy {
         val trustAll = object : X509TrustManager {
@@ -57,7 +68,7 @@ class Prober(
             override fun checkServerTrusted(chain: Array<X509Certificate>?, authType: String?) {}
             override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
         }
-        SSLContext.getInstance("TLSv1.2").apply {
+        SSLContext.getInstance("TLS").apply {
             init(null, arrayOf(trustAll), SecureRandom())
         }.socketFactory
     }
@@ -65,67 +76,70 @@ class Prober(
     /**
      * Runs [tries] staged attempts against [ip] and returns the aggregate.
      *
-     * Stages per attempt:
-     *  1. TCP connect (measures latency)
-     *  2. TLS handshake with a rotating SNI
-     *  3. HTTPS GET /cdn-cgi/trace — confirms a real Cloudflare edge and colo
-     *  4. Idle hold — confirms DPI does not reset the connection
-     *  5. WebSocket upgrade (optional) — confirms proxy protocols can pass
+     * Suspending and cooperatively cancellable: pressing Stop aborts in-flight
+     * probes instead of leaving threads parked for seconds.
      */
-    fun probe(ip: String, port: Int = 443, tries: Int = 3): ScanResult {
-        val result = ScanResult(ip = ip, port = port)
+    suspend fun probe(ip: String, port: Int = 443, tries: Int = 3): ScanResult =
+        withContext(Dispatchers.IO) {
+            val result = ScanResult(ip = ip, port = port)
 
-        repeat(tries) { attempt ->
-            var socket: Socket? = null
-            try {
-                val started = System.nanoTime()
-                socket = Socket()
-                socket.tcpNoDelay = true
-                socket.soTimeout = timeoutMs
-                socket.connect(InetSocketAddress(ip, port), timeoutMs)
-                val connectMs = (System.nanoTime() - started) / 1_000_000
+            repeat(tries) { attempt ->
+                currentCoroutineContext().ensureActive()
+                var socket: Socket? = null
+                var tls: SSLSocket? = null
+                try {
+                    val started = System.nanoTime()
+                    socket = Socket()
+                    socket.tcpNoDelay = true
+                    socket.soTimeout = timeoutMs
+                    socket.connect(InetSocketAddress(ip, port), timeoutMs)
+                    val connectMs = (System.nanoTime() - started) / 1_000_000
 
-                if (port == 80) {
-                    // Plain HTTP path: no TLS to verify.
-                    result.latencies.add(if (connectMs > 0) connectMs else 1)
-                    holdIdle(socket, result)
-                    return@repeat
+                    if (port == 80) {
+                        result.latencies.add(if (connectMs > 0) connectMs else 1)
+                        holdIdle(socket, result)
+                        return@repeat
+                    }
+
+                    val sni = sniPool[(attempt + rnd.nextInt(sniPool.size)) % sniPool.size]
+                    tls = (probeSocketFactory.createSocket(socket, sni, port, false) as SSLSocket).apply {
+                        soTimeout = timeoutMs
+                        sslParameters = sslParameters.apply {
+                            serverNames = listOf(SNIHostName(sni))
+                        }
+                        startHandshake()
+                    }
+                    result.tlsOk = true
+
+                    val totalMs = (System.nanoTime() - started) / 1_000_000
+                    result.latencies.add(if (totalMs > 0) totalMs else 1)
+
+                    // Confirm this is genuinely a Cloudflare edge, and learn its colo.
+                    verifyEdge(tls, sni, result)
+
+                    // The decisive test: does the link survive being idle?
+                    holdIdle(tls, result)
+
+                    if (testWebSocket && !result.wsOk && result.stableOk) {
+                        tls.closeQuietly()
+                        socket.closeQuietly()
+                        tls = null
+                        socket = null
+                        probeWebSocket(ip, port, sni, result)
+                    }
+                } catch (ce: CancellationException) {
+                    throw ce
+                } catch (_: Exception) {
+                    // A failed attempt is recorded as latency 0 so loss() sees it.
+                    result.latencies.add(0)
+                } finally {
+                    tls?.closeQuietly()
+                    socket?.closeQuietly()
                 }
-
-                val sni = sniPool[(attempt + rnd.nextInt(sniPool.size)) % sniPool.size]
-                val tls = probeSocketFactory.createSocket(socket, sni, port, true) as SSLSocket
-                tls.soTimeout = timeoutMs
-                // Advertise the SNI we intend DPI to see.
-                tls.sslParameters = tls.sslParameters.apply { serverNames = listOf(javax.net.ssl.SNIHostName(sni)) }
-                tls.startHandshake()
-                result.tlsOk = true
-
-                val totalMs = (System.nanoTime() - started) / 1_000_000
-                result.latencies.add(if (totalMs > 0) totalMs else 1)
-
-                // Confirm this is genuinely a Cloudflare edge, and learn its colo.
-                verifyEdge(tls, sni, result)
-
-                // The decisive Iran test: does the link survive being idle?
-                holdIdle(tls, result)
-
-                if (testWebSocket && result.wsOk.not() && result.stableOk) {
-                    // Reuse of a spent socket is unreliable; use a fresh one.
-                    tls.closeQuietly()
-                    socket.closeQuietly()
-                    socket = null
-                    probeWebSocket(ip, port, sni, result)
-                }
-            } catch (_: Exception) {
-                // A failed attempt is recorded as latency 0 so loss() sees it.
-                result.latencies.add(0)
-            } finally {
-                socket?.closeQuietly()
             }
-        }
 
-        return result
-    }
+            result
+        }
 
     /** Issues GET /cdn-cgi/trace and extracts the HTTP status plus colo code. */
     private fun verifyEdge(socket: Socket, sni: String, result: ScanResult) {
@@ -144,18 +158,17 @@ class Prober(
 
             val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
             val statusLine = reader.readLine() ?: return
-            // e.g. "HTTP/1.1 200 OK"
             statusLine.split(" ").getOrNull(1)?.toIntOrNull()?.let { result.httpStatus = it }
 
-            // Read headers, then the trace body which carries colo=XXX.
-            var line: String?
+            // Skip headers.
             while (true) {
-                line = reader.readLine() ?: break
+                val line = reader.readLine() ?: break
                 if (line.isEmpty()) break
             }
+            // Body is the trace key=value list; find colo.
             var guard = 0
             while (guard++ < 40) {
-                line = reader.readLine() ?: break
+                val line = reader.readLine() ?: break
                 val trimmed = line.trim()
                 if (trimmed.startsWith("colo=")) {
                     result.colo = trimmed.removePrefix("colo=").trim().uppercase()
@@ -168,26 +181,58 @@ class Prober(
     }
 
     /**
-     * Keeps the connection open and idle, then checks it is still alive.
+     * Keeps the connection open and idle, then verifies it is still alive.
      *
-     * Iranian DPI commonly allows the handshake through and injects an RST a
-     * few seconds later. Sleeping and then re-testing the socket is what
-     * separates an IP that merely *connects* from one that actually *works*.
+     * DPI on filtered networks commonly allows the handshake through and injects
+     * an RST a few seconds later. Waiting and then re-testing is what separates
+     * an IP that merely *connects* from one that actually *works*.
+     *
+     * Liveness is checked by a short blocking read: a reset connection throws or
+     * returns -1 (EOF), while a healthy idle connection simply times out — and a
+     * read timeout is precisely the outcome we want. An earlier version used
+     * `sendUrgentData`, which most Android devices reject outright, so no IP
+     * ever passed and every result came back unhealthy.
      */
-    private fun holdIdle(socket: Socket, result: ScanResult) {
+    private suspend fun holdIdle(socket: Socket, result: ScanResult) {
         try {
-            val half = idleHoldMs / 2
-            Thread.sleep(half.toLong())
-            if (socket.isClosed || !socket.isConnected || socket.isInputShutdown) return
-            // Second stage: some DPI resets land later than others.
-            Thread.sleep((idleHoldMs - half).toLong())
-            if (socket.isClosed || !socket.isConnected || socket.isInputShutdown) return
+            // Split the wait so cancellation lands promptly.
+            val slice = (idleHoldMs / 5).coerceAtLeast(100).toLong()
+            var waited = 0L
+            while (waited < idleHoldMs) {
+                delay(slice)
+                waited += slice
+                if (!currentCoroutineContext().isActive) return
+                if (socket.isClosed || !socket.isConnected || socket.isInputShutdown) return
+            }
 
-            // Urgent-data probe forces the stack to surface a pending RST.
-            socket.sendUrgentData(0xFF)
-            result.stableOk = true
+            result.stableOk = withContext(Dispatchers.IO) { isStillAlive(socket) }
+        } catch (ce: CancellationException) {
+            throw ce
         } catch (_: Exception) {
-            // An exception here means DPI (or the peer) killed the connection.
+            // Any failure here means the connection did not survive.
+        }
+    }
+
+    /**
+     * Returns true when the socket is still usable.
+     *
+     * A very short read timeout is applied: `SocketTimeoutException` means
+     * nothing arrived, i.e. the connection is open and healthy. EOF (-1) or any
+     * other exception means the peer or DPI tore it down.
+     */
+    private fun isStillAlive(socket: Socket): Boolean {
+        val previousTimeout = try { socket.soTimeout } catch (_: Exception) { timeoutMs }
+        return try {
+            socket.soTimeout = 350
+            val b = socket.getInputStream().read()
+            // Unexpected data is fine; EOF is not.
+            b != -1
+        } catch (_: java.net.SocketTimeoutException) {
+            true // silence == still connected
+        } catch (_: Exception) {
+            false
+        } finally {
+            try { socket.soTimeout = previousTimeout } catch (_: Exception) { }
         }
     }
 
@@ -198,43 +243,78 @@ class Prober(
      * so an edge that refuses the upgrade is of little practical use even if it
      * answers plain HTTPS.
      */
-    private fun probeWebSocket(ip: String, port: Int, sni: String, result: ScanResult) {
-        var socket: Socket? = null
-        try {
-            socket = Socket()
-            socket.soTimeout = timeoutMs
-            socket.connect(InetSocketAddress(ip, port), timeoutMs)
-            val tls = probeSocketFactory.createSocket(socket, sni, port, true) as SSLSocket
-            tls.soTimeout = timeoutMs
-            tls.startHandshake()
+    private suspend fun probeWebSocket(ip: String, port: Int, sni: String, result: ScanResult) =
+        withContext(Dispatchers.IO) {
+            var socket: Socket? = null
+            var tls: SSLSocket? = null
+            try {
+                socket = Socket()
+                socket.soTimeout = timeoutMs
+                socket.connect(InetSocketAddress(ip, port), timeoutMs)
+                tls = (probeSocketFactory.createSocket(socket, sni, port, false) as SSLSocket).apply {
+                    soTimeout = timeoutMs
+                    sslParameters = sslParameters.apply { serverNames = listOf(SNIHostName(sni)) }
+                    startHandshake()
+                }
 
-            val key = java.util.Base64.getEncoder().encodeToString(ByteArray(16).also { rnd.nextBytes(it) })
-            val request = buildString {
-                append("GET / HTTP/1.1\r\n")
-                append("Host: $sni\r\n")
-                append("Upgrade: websocket\r\n")
-                append("Connection: Upgrade\r\n")
-                append("Sec-WebSocket-Key: $key\r\n")
-                append("Sec-WebSocket-Version: 13\r\n")
-                append("User-Agent: Mozilla/5.0\r\n\r\n")
+                val keyBytes = ByteArray(16).also { rnd.nextBytes(it) }
+                val key = base64(keyBytes)
+                val request = buildString {
+                    append("GET / HTTP/1.1\r\n")
+                    append("Host: $sni\r\n")
+                    append("Upgrade: websocket\r\n")
+                    append("Connection: Upgrade\r\n")
+                    append("Sec-WebSocket-Key: $key\r\n")
+                    append("Sec-WebSocket-Version: 13\r\n")
+                    append("User-Agent: Mozilla/5.0\r\n\r\n")
+                }
+                tls.getOutputStream().apply {
+                    write(request.toByteArray())
+                    flush()
+                }
+                val statusLine = BufferedReader(InputStreamReader(tls.getInputStream())).readLine()
+                    ?: return@withContext
+                // 101 = upgraded. 4xx still proves the edge parsed our request and
+                // is reachable through DPI, which is the property we care about.
+                val code = statusLine.split(" ").getOrNull(1)?.toIntOrNull() ?: return@withContext
+                result.wsOk = code == 101 || code in 400..499
+            } catch (ce: CancellationException) {
+                throw ce
+            } catch (_: Exception) {
+                // Leave wsOk false.
+            } finally {
+                tls?.closeQuietly()
+                socket?.closeQuietly()
             }
-            tls.getOutputStream().apply {
-                write(request.toByteArray())
-                flush()
-            }
-            val statusLine = BufferedReader(InputStreamReader(tls.getInputStream())).readLine() ?: return
-            // 101 = upgraded. 4xx still proves the edge parsed our request and
-            // is reachable through DPI, which is the property we care about.
-            val code = statusLine.split(" ").getOrNull(1)?.toIntOrNull() ?: return
-            result.wsOk = code == 101 || code in 400..499
-        } catch (_: Exception) {
-            // Leave wsOk false.
-        } finally {
-            socket?.closeQuietly()
         }
-    }
 
     private fun Socket.closeQuietly() {
-        try { close() } catch (_: Exception) { }
+        try { close() } catch (_: Exception) { } catch (_: SocketException) { }
+    }
+
+    /**
+     * Minimal Base64 encoder.
+     *
+     * Deliberately hand-rolled rather than using android.util.Base64, which is a
+     * stubbed class in plain JVM unit tests and throws at runtime there, and
+     * java.util.Base64, which needs API 26 (this app supports 24).
+     */
+    private fun base64(bytes: ByteArray): String {
+        val table = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+        val sb = StringBuilder(((bytes.size + 2) / 3) * 4)
+        var i = 0
+        while (i < bytes.size) {
+            val b0 = bytes[i].toInt() and 0xFF
+            val b1 = if (i + 1 < bytes.size) bytes[i + 1].toInt() and 0xFF else 0
+            val b2 = if (i + 2 < bytes.size) bytes[i + 2].toInt() and 0xFF else 0
+            val triple = (b0 shl 16) or (b1 shl 8) or b2
+
+            sb.append(table[(triple shr 18) and 0x3F])
+            sb.append(table[(triple shr 12) and 0x3F])
+            sb.append(if (i + 1 < bytes.size) table[(triple shr 6) and 0x3F] else '=')
+            sb.append(if (i + 2 < bytes.size) table[triple and 0x3F] else '=')
+            i += 3
+        }
+        return sb.toString()
     }
 }
