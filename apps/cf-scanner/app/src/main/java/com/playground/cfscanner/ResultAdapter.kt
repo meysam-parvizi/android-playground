@@ -6,10 +6,17 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.chip.Chip
 
-/** Renders ranked scan results, best first. */
+/**
+ * Renders ranked scan results, best first.
+ *
+ * Updates go through [DiffUtil] rather than `notifyDataSetChanged()`. Results
+ * arrive continuously during a scan, and a blanket invalidation rebound every
+ * visible row each time, which is what made the list stutter while scrolling.
+ */
 class ResultAdapter(
     /** Invoked when a row is tapped; used to copy that single IP. */
     private val onRowClick: (ScanResult) -> Unit = {},
@@ -26,19 +33,22 @@ class ResultAdapter(
         val chipLoss: Chip = view.findViewById(R.id.chipLoss)
         val chipColo: Chip = view.findViewById(R.id.chipColo)
         val chipWs: Chip = view.findViewById(R.id.chipWs)
+
+        /** Cached so the default chip colour is not re-read on every bind. */
+        var defaultChipTextColor: Int = 0
     }
 
     /**
-     * Replaces the visible list.
+     * Replaces the visible list, dispatching only the rows that actually changed.
      *
-     * Callers pass an already-sorted list computed off the main thread; this only
-     * swaps it in. The list is short (tens of rows), so a full refresh is cheap —
-     * the expensive part was the sorting, which no longer happens here.
+     * The caller passes a list already sorted off the main thread; this method
+     * just diffs and swaps.
      */
     fun submit(newItems: List<ScanResult>) {
+        val diff = DiffUtil.calculateDiff(Diff(items, newItems), false)
         items.clear()
         items.addAll(newItems)
-        notifyDataSetChanged()
+        diff.dispatchUpdatesTo(this)
     }
 
     fun clear() {
@@ -49,7 +59,7 @@ class ResultAdapter(
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
         val v = LayoutInflater.from(parent.context).inflate(R.layout.item_result, parent, false)
-        return Holder(v)
+        return Holder(v).also { it.defaultChipTextColor = it.chipPing.currentTextColor }
     }
 
     override fun onBindViewHolder(holder: Holder, position: Int) {
@@ -59,22 +69,25 @@ class ResultAdapter(
         val colour = ctx.getColor(gradeColour(score))
         val tint = ctx.getColor(gradeTint(score))
 
-        holder.rank.text = "${position + 1}"
+        holder.rank.text = Format.number(position + 1)
         holder.rank.setTextColor(colour)
         // Tint the shared oval per grade rather than shipping five drawables.
         (holder.rank.background?.mutate() as? GradientDrawable)?.setColor(tint)
 
-        holder.ip.text = r.ip
-        holder.score.text = "$score · ${r.grade()}"
+        // Latin digits, isolated: an IP is copied into configs, so its digits
+        // must stay ASCII and its ordering must survive the RTL layout.
+        holder.ip.text = Format.ip(r.ip)
+
+        holder.score.text = ctx.getString(R.string.score_and_grade, Format.number(score), r.grade())
         holder.score.setTextColor(colour)
 
-        holder.chipPing.text = ctx.getString(R.string.chip_ping, r.avgMs())
-        holder.chipJitter.text = ctx.getString(R.string.chip_jitter, r.jitterMs())
+        holder.chipPing.text = ctx.getString(R.string.chip_ping, Format.millis(r.avgMs()))
+        holder.chipJitter.text = ctx.getString(R.string.chip_jitter, Format.millis(r.jitterMs()))
+        holder.chipLoss.text = ctx.getString(R.string.chip_loss, Format.percent(r.loss().toInt()))
 
-        holder.chipLoss.text = ctx.getString(R.string.chip_loss, r.loss().toInt())
         // Loss is the metric worth calling out, so colour it when non-zero.
         holder.chipLoss.setTextColor(
-            if (r.loss() > 0) ctx.getColor(R.color.grade_weak) else holder.chipPing.currentTextColor,
+            if (r.loss() > 0) ctx.getColor(R.color.grade_weak) else holder.defaultChipTextColor,
         )
 
         holder.chipColo.text = r.colo
@@ -100,6 +113,39 @@ class ResultAdapter(
      * Bare list of IPs in the order shown, best first — see [ResultExport.ipList].
      */
     fun exportText(): String = ResultExport.ipList(items)
+
+    /**
+     * Diff over the ranked list.
+     *
+     * Identity is the address, but position matters too: the rank badge shows the
+     * row's place in the ranking, so a row that moved has to be rebound even
+     * though its measurements are unchanged.
+     */
+    private class Diff(
+        private val old: List<ScanResult>,
+        private val new: List<ScanResult>,
+    ) : DiffUtil.Callback() {
+
+        override fun getOldListSize(): Int = old.size
+
+        override fun getNewListSize(): Int = new.size
+
+        override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean =
+            old[oldItemPosition].ip == new[newItemPosition].ip
+
+        override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+            // Same position and same displayed values means nothing to redraw.
+            if (oldItemPosition != newItemPosition) return false
+            val a = old[oldItemPosition]
+            val b = new[newItemPosition]
+            return a.score() == b.score() &&
+                a.avgMs() == b.avgMs() &&
+                a.jitterMs() == b.jitterMs() &&
+                a.loss() == b.loss() &&
+                a.colo == b.colo &&
+                a.wsOk == b.wsOk
+        }
+    }
 
     private companion object {
         /** Grade bands mirror [ScanResult.grade]. */

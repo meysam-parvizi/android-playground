@@ -21,6 +21,7 @@ import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -51,6 +52,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var resultAdapter: ResultAdapter
 
     private var scanJob: Job? = null
+    private var resortJob: Job? = null
     private val found = mutableListOf<ScanResult>()
     private var hasScanned = false
 
@@ -102,7 +104,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setUpDropdowns() {
-        val counts = countOptions.map { getString(R.string.label_count_value, it) }
+        // Bare Persian numerals: "۳۰۰ آی‌پی" reordered badly in the RTL field, and
+        // the hint label already says what the number counts.
+        val counts = countOptions.map { Format.number(it) }
         countInput.setAdapter(
             ArrayAdapter(this, android.R.layout.simple_list_item_1, counts),
         )
@@ -116,7 +120,8 @@ class MainActivity : AppCompatActivity() {
         sortInput.setText(sorts[selectedSortIndex], false)
         sortInput.setOnItemClickListener { _, _, position, _ ->
             selectedSortIndex = position
-            resort()
+            // User-driven, so re-rank at once rather than after the debounce.
+            resort(immediate = true)
         }
     }
 
@@ -125,21 +130,50 @@ class MainActivity : AppCompatActivity() {
         findViewById<RecyclerView>(R.id.resultList).apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = resultAdapter
+            // The list lives inside a NestedScrollView. Left at wrap_content it
+            // would lay out every row at full height and recycle nothing, which
+            // is what made scrolling stutter during a scan. Fixing the height and
+            // letting it scroll itself restores recycling.
             isNestedScrollingEnabled = false
+            setHasFixedSize(false)
+            // Rows are uniform, so keeping a few extra off-screen holders avoids
+            // re-inflating them as results stream in.
+            setItemViewCacheSize(12)
+            // Ranks shift constantly while scanning; animating every move is
+            // both distracting and needless main-thread work.
+            itemAnimator = null
         }
     }
 
     private fun currentSort(): SortBy =
         SortBy.entries.getOrElse(selectedSortIndex) { SortBy.SCORE }
 
-    /** Sorts on a background dispatcher, then swaps the list in on the main thread. */
-    private fun resort() {
-        if (found.isEmpty()) return
-        val snapshot = found.toList()
+    /**
+     * Re-ranks and redraws the visible list, coalescing bursts of results.
+     *
+     * Sorting runs on [Dispatchers.Default] because doing it inline on every hit
+     * stalled the main thread. On top of that, hits arrive in bursts, so a short
+     * debounce collapses them into one sort plus one diff — re-ranking per hit is
+     * what made the list stutter while scrolling.
+     *
+     * @param immediate skip the debounce, for user-driven changes like switching
+     *   the sort criterion where any delay feels like lag.
+     */
+    private fun resort(immediate: Boolean = false) {
+        if (found.isEmpty()) {
+            renderEmptyState()
+            renderResultsHeader()
+            return
+        }
         val criterion = currentSort()
-        lifecycleScope.launch {
+
+        resortJob?.cancel()
+        resortJob = lifecycleScope.launch {
+            if (!immediate) delay(RESORT_DEBOUNCE_MS)
+            val snapshot = found.toList()
             val ranked = withContext(Dispatchers.Default) { Ranking.sort(snapshot, criterion) }
             resultAdapter.submit(ranked)
+            renderEmptyState()
             renderResultsHeader()
         }
     }
@@ -179,12 +213,21 @@ class MainActivity : AppCompatActivity() {
                     onResult = { r ->
                         found.add(r)
                         copyButton.isEnabled = true
-                        resort() // sorting happens off the main thread
+                        // Hide the empty block the instant a result exists, so the
+                        // screen never claims nothing was found while listing hits.
+                        emptyState.visibility = View.GONE
+                        resort() // debounced; sorting happens off the main thread
                     },
                 )
                 val healthy = Ranking.healthy(all)
+                // Flush any debounced re-rank so the final list is complete.
+                resort(immediate = true)
                 statusText.setText(R.string.status_done)
-                subStatusText.text = getString(R.string.status_done_detail, all.size, healthy.size)
+                subStatusText.text = getString(
+                    R.string.status_done_detail,
+                    Format.number(all.size),
+                    Format.number(healthy.size),
+                )
                 subStatusText.visibility = View.VISIBLE
                 progressBar.progress = 100
             } catch (_: CancellationException) {
@@ -203,10 +246,14 @@ class MainActivity : AppCompatActivity() {
     private fun renderProgress(p: ScanProgress) {
         progressBar.progress =
             if (p.total > 0) ((p.probed * 100) / p.total).coerceIn(0, 100) else 0
-        subStatusText.text = getString(R.string.status_progress, p.probed, p.total)
+        subStatusText.text = getString(
+            R.string.status_progress,
+            Format.number(p.probed),
+            Format.number(p.total),
+        )
         subStatusText.visibility = View.VISIBLE
         if (p.healthy > 0) {
-            healthyBadge.text = getString(R.string.status_healthy_badge, p.healthy)
+            healthyBadge.text = getString(R.string.status_healthy_badge, Format.number(p.healthy))
             healthyBadge.visibility = View.VISIBLE
         }
     }
@@ -215,18 +262,25 @@ class MainActivity : AppCompatActivity() {
         resultsHeader.text = if (found.isEmpty()) {
             getString(R.string.label_results)
         } else {
-            getString(R.string.label_results_count, found.size)
+            getString(R.string.label_results_count, Format.number(found.size))
         }
     }
 
-    /** Shows the right empty message, or hides the block once there are rows. */
+    /**
+     * Shows the right empty message, or hides the block once there are rows.
+     *
+     * The "found nothing" wording is only ever shown after a scan has actually
+     * finished. While a scan is running the block is hidden the moment the first
+     * result lands, and before that it shows the neutral prompt — otherwise the
+     * screen claimed no IPs were found while listing several of them.
+     */
     private fun renderEmptyState() {
-        val scanning = scanJob?.isActive == true
         if (found.isNotEmpty()) {
             emptyState.visibility = View.GONE
             return
         }
         emptyState.visibility = View.VISIBLE
+        val scanning = scanJob?.isActive == true
         if (hasScanned && !scanning) {
             emptyTitle.setText(R.string.empty_none_found)
             emptyHint.setText(R.string.empty_none_found_hint)
@@ -258,13 +312,13 @@ class MainActivity : AppCompatActivity() {
             return
         }
         copyToClipboard(resultAdapter.exportText())
-        snack(getString(R.string.toast_copied, items.size))
+        snack(getString(R.string.toast_copied, Format.number(items.size)))
     }
 
     /** Tapping one row copies just that address — handy for a quick single test. */
     private fun copySingle(r: ScanResult) {
         copyToClipboard(r.ip)
-        snack(getString(R.string.toast_copied_one, r.ip))
+        snack(getString(R.string.toast_copied_one, Format.ip(r.ip)))
     }
 
     private fun copyToClipboard(text: String) {
@@ -286,6 +340,17 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         scanJob?.cancel()
+        resortJob?.cancel()
         super.onDestroy()
+    }
+
+    private companion object {
+        /**
+         * Debounce window for re-ranking while results stream in.
+         *
+         * Long enough to collapse a burst of hits into a single sort and diff,
+         * short enough that the list still feels live.
+         */
+        const val RESORT_DEBOUNCE_MS = 250L
     }
 }

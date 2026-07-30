@@ -301,6 +301,11 @@
                     tools:itemCount="3"
                     tools:listitem="@layout/item_result" />
 
+                <!-- Trailing spacer: keeps the last card clear of the nav bar. -->
+                <Space
+                    android:layout_width="match_parent"
+                    android:layout_height="8dp" />
+
             </LinearLayout>
         </androidx.core.widget.NestedScrollView>
     </LinearLayout>

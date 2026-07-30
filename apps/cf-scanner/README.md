@@ -76,6 +76,20 @@ Material 3, with light and dark themes and full RTL layout. One screen, everythi
 
 Controls that would corrupt an in-flight run are disabled while scanning; sort stays live so results can be re-ranked as they arrive.
 
+### Persian numerals and bidi
+
+All measurements render in Persian digits (`۸۵`, `۲۳ms`, `۰٪`), but **IP addresses deliberately keep Latin digits** — they get copied into client configs, where Persian numerals would be useless.
+
+Values embedded in Persian labels are wrapped in Unicode directional isolates. Without that the bidirectional algorithm reorders them: "loss 0%" rendered on-device as the garbled `0%لاس`. `FormatTest` pins both rules, including that an address never contains a Persian digit.
+
+### Keeping the list smooth
+
+Results stream in continuously, which makes naive list updates expensive enough to stutter scrolling. Three things prevent that:
+
+- Re-ranking is **debounced** (250 ms), collapsing a burst of hits into one sort plus one diff. Changing the sort criterion bypasses the debounce, since a delay there reads as lag.
+- Updates go through **`DiffUtil`**, so only rows that actually moved or changed are rebound instead of the whole list.
+- Item animations are off and a small view cache is kept — ranks shift constantly during a scan, so animating every move is pure overhead.
+
 ## Threading
 
 The scan is entirely off the main thread, and this is load-bearing rather than incidental:
@@ -106,7 +120,7 @@ Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner
 - Every push/PR touching `apps/cf-scanner/**` runs the unit tests, builds the APK, and uploads it as an artifact
 - Pushing a tag `cf-scanner-v<version>` publishes the APK as a GitHub Release asset
 
-Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.0.4**.
+Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.0.5**.
 
 ## Details
 
