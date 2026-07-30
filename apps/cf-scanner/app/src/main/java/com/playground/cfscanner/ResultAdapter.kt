@@ -1,29 +1,39 @@
 package com.playground.cfscanner
 
+import android.content.res.ColorStateList
+import android.graphics.drawable.GradientDrawable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.chip.Chip
 
 /** Renders ranked scan results, best first. */
-class ResultAdapter : RecyclerView.Adapter<ResultAdapter.Holder>() {
+class ResultAdapter(
+    /** Invoked when a row is tapped; used to copy that single IP. */
+    private val onRowClick: (ScanResult) -> Unit = {},
+) : RecyclerView.Adapter<ResultAdapter.Holder>() {
 
     private val items = mutableListOf<ScanResult>()
 
     class Holder(view: View) : RecyclerView.ViewHolder(view) {
+        val rank: TextView = view.findViewById(R.id.rowRank)
         val ip: TextView = view.findViewById(R.id.rowIp)
         val score: TextView = view.findViewById(R.id.rowScore)
-        val detail: TextView = view.findViewById(R.id.rowDetail)
+        val chipPing: Chip = view.findViewById(R.id.chipPing)
+        val chipJitter: Chip = view.findViewById(R.id.chipJitter)
+        val chipLoss: Chip = view.findViewById(R.id.chipLoss)
+        val chipColo: Chip = view.findViewById(R.id.chipColo)
+        val chipWs: Chip = view.findViewById(R.id.chipWs)
     }
 
     /**
      * Replaces the visible list.
      *
-     * Callers pass an already-sorted list computed off the main thread; this
-     * method only swaps it in and refreshes. The list is short (tens of rows),
-     * so a full refresh is cheap — the expensive part was the sorting, which no
-     * longer happens here.
+     * Callers pass an already-sorted list computed off the main thread; this only
+     * swaps it in. The list is short (tens of rows), so a full refresh is cheap —
+     * the expensive part was the sorting, which no longer happens here.
      */
     fun submit(newItems: List<ScanResult>) {
         items.clear()
@@ -44,33 +54,41 @@ class ResultAdapter : RecyclerView.Adapter<ResultAdapter.Holder>() {
 
     override fun onBindViewHolder(holder: Holder, position: Int) {
         val r = items[position]
-        val rank = position + 1
+        val ctx = holder.itemView.context
+        val score = r.score()
+        val colour = ctx.getColor(gradeColour(score))
+        val tint = ctx.getColor(gradeTint(score))
 
-        holder.ip.text = "$rank. ${r.ip}"
-        holder.score.text = "${r.score()} · ${r.grade()}"
+        holder.rank.text = "${position + 1}"
+        holder.rank.setTextColor(colour)
+        // Tint the shared oval per grade rather than shipping five drawables.
+        (holder.rank.background?.mutate() as? GradientDrawable)?.setColor(tint)
 
-        // Colour-code the score so the good IPs stand out at a glance.
-        // Bands mirror ScanResult.grade().
-        val colour = when (r.score()) {
-            in 90..100 -> 0xFF2E7D32.toInt() // green
-            in 75..89 -> 0xFF558B2F.toInt()  // light green
-            in 55..74 -> 0xFFF9A825.toInt()  // amber
-            in 1..54 -> 0xFFE65100.toInt()   // orange
-            else -> 0xFFC62828.toInt()       // red
-        }
+        holder.ip.text = r.ip
+        holder.score.text = "$score · ${r.grade()}"
         holder.score.setTextColor(colour)
 
-        val flags = buildString {
-            if (r.stableOk) append(" ✓پایدار")
-            if (r.wsOk) append(" ✓WS")
+        holder.chipPing.text = ctx.getString(R.string.chip_ping, r.avgMs())
+        holder.chipJitter.text = ctx.getString(R.string.chip_jitter, r.jitterMs())
+
+        holder.chipLoss.text = ctx.getString(R.string.chip_loss, r.loss().toInt())
+        // Loss is the metric worth calling out, so colour it when non-zero.
+        holder.chipLoss.setTextColor(
+            if (r.loss() > 0) ctx.getColor(R.color.grade_weak) else holder.chipPing.currentTextColor,
+        )
+
+        holder.chipColo.text = r.colo
+        holder.chipColo.visibility = if (r.colo.isEmpty()) View.GONE else View.VISIBLE
+
+        // WebSocket carry is a real capability signal, so highlight it.
+        holder.chipWs.visibility = if (r.wsOk) View.VISIBLE else View.GONE
+        if (r.wsOk) {
+            holder.chipWs.setTextColor(ctx.getColor(R.color.grade_excellent))
+            holder.chipWs.chipBackgroundColor =
+                ColorStateList.valueOf(ctx.getColor(R.color.grade_excellent_bg))
         }
-        holder.detail.text = buildString {
-            append("پینگ ${r.avgMs()}ms")
-            append(" · نوسان ${r.jitterMs()}ms")
-            append(" · لاس ${r.loss().toInt()}%")
-            if (r.colo.isNotEmpty()) append(" · ${r.colo}")
-            append(flags)
-        }
+
+        holder.itemView.setOnClickListener { onRowClick(r) }
     }
 
     override fun getItemCount(): Int = items.size
@@ -82,4 +100,23 @@ class ResultAdapter : RecyclerView.Adapter<ResultAdapter.Holder>() {
      * Bare list of IPs in the order shown, best first — see [ResultExport.ipList].
      */
     fun exportText(): String = ResultExport.ipList(items)
+
+    private companion object {
+        /** Grade bands mirror [ScanResult.grade]. */
+        fun gradeColour(score: Int): Int = when (score) {
+            in 90..100 -> R.color.grade_excellent
+            in 75..89 -> R.color.grade_good
+            in 55..74 -> R.color.grade_fair
+            in 1..54 -> R.color.grade_weak
+            else -> R.color.grade_bad
+        }
+
+        fun gradeTint(score: Int): Int = when (score) {
+            in 90..100 -> R.color.grade_excellent_bg
+            in 75..89 -> R.color.grade_good_bg
+            in 55..74 -> R.color.grade_fair_bg
+            in 1..54 -> R.color.grade_weak_bg
+            else -> R.color.grade_bad_bg
+        }
+    }
 }

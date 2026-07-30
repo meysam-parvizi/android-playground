@@ -2,22 +2,44 @@
 <resources>
     <string name="app_name">CF Scanner</string>
 
-    <string name="label_count">تعداد آی‌پی برای اسکن</string>
-    <string name="label_sort">مرتب‌سازی بر اساس</string>
-    <string name="label_iran_mode">حالت ایران (تست پایداری و WebSocket)</string>
-    <string name="label_results">نتایج (بهترین در بالا)</string>
+    <string name="section_settings">تنظیمات اسکن</string>
+    <string name="label_count">تعداد آی‌پی</string>
+    <string name="label_count_value">%1$d آی‌پی</string>
+    <string name="label_sort">مرتب‌سازی</string>
+    <string name="label_iran_mode">حالت شبکه‌ی محدود</string>
+    <string name="label_iran_mode_hint">تست پایداری و WebSocket — دقیق‌تر ولی کمی کندتر</string>
+    <string name="label_results">نتایج</string>
+    <string name="label_results_count">نتایج (%1$d)</string>
 
     <string name="action_scan">شروع اسکن</string>
-    <string name="action_stop">توقف</string>
+    <string name="action_stop">توقف اسکن</string>
     <string name="action_copy">کپی</string>
+    <string name="action_about">درباره</string>
 
-    <string name="status_idle">آماده. برای شروع دکمه اسکن را بزنید.</string>
+    <string name="status_idle">آماده‌ی اسکن</string>
     <string name="status_scanning">در حال اسکن…</string>
-    <string name="status_progress">بررسی‌شده %1$d از %2$d · سالم: %3$d</string>
-    <string name="status_done">پایان. %1$d آی‌پی بررسی شد، %2$d سالم بود.</string>
-    <string name="status_stopped">اسکن متوقف شد.</string>
-    <string name="status_error">خطا در اسکن. اتصال اینترنت را بررسی کنید.</string>
+    <string name="status_progress">بررسی %1$d از %2$d</string>
+    <string name="status_done">اسکن کامل شد</string>
+    <string name="status_done_detail">%1$d آی‌پی بررسی شد · %2$d سالم</string>
+    <string name="status_stopped">اسکن متوقف شد</string>
+    <string name="status_error">خطا در اسکن — اتصال اینترنت را بررسی کنید</string>
+    <string name="status_healthy_badge">%1$d سالم</string>
 
-    <string name="toast_copied">لیست در کلیپ‌بورد کپی شد</string>
-    <string name="toast_nothing">هنوز نتیجه‌ای پیدا نشده</string>
+    <string name="empty_title">هنوز نتیجه‌ای نیست</string>
+    <string name="empty_hint">دکمه‌ی شروع اسکن را بزنید تا آی‌پی‌های سالم کلادفلر پیدا و رتبه‌بندی شوند.</string>
+    <string name="empty_none_found">آی‌پی سالمی پیدا نشد</string>
+    <string name="empty_none_found_hint">دوباره تلاش کنید یا تعداد آی‌پی را بیشتر کنید. رفتار شبکه مدام تغییر می‌کند.</string>
+
+    <string name="chip_ping">پینگ %1$d</string>
+    <string name="chip_jitter">نوسان %1$d</string>
+    <string name="chip_loss">لاس %1$d%%</string>
+    <string name="chip_ws">WS</string>
+
+    <string name="toast_copied">%1$d آی‌پی کپی شد</string>
+    <string name="toast_copied_one">%1$s کپی شد</string>
+    <string name="toast_nothing">نتیجه‌ای برای کپی وجود ندارد</string>
+
+    <string name="about_title">درباره‌ی CF Scanner</string>
+    <string name="about_body">این اپ رنج‌های رسمی کلادفلر را اسکن می‌کند و آی‌پی‌هایی را که واقعاً قابل استفاده‌اند رتبه‌بندی می‌کند.\n\nهر آی‌پی چند مرحله تست می‌شود: اتصال TCP، هندشیک TLS، تأیید واقعی بودن edge کلادفلر، و مهم‌تر از همه نگه‌داشتن اتصال بی‌کار تا مشخص شود توسط فایروال قطع نمی‌شود.\n\nامتیازدهی پایداری و یکنواختی را مهم‌تر از سرعت خام می‌داند؛ یعنی یک آی‌پی پایدار با پینگ ۲۵۰ بالاتر از یک آی‌پی ناپایدار با پینگ ۳۰ قرار می‌گیرد.\n\nنتایج یک عکس لحظه‌ای هستند — رفتار شبکه مدام تغییر می‌کند، پس هر وقت آی‌پی‌ها از کار افتادند دوباره اسکن کنید.</string>
+    <string name="about_close">بستن</string>
 </resources>

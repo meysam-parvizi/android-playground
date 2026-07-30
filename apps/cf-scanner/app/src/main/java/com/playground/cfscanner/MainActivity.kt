@@ -5,18 +5,19 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
 import android.view.View
-import android.widget.AdapterView
 import android.widget.ArrayAdapter
-import android.widget.Button
-import android.widget.CheckBox
-import android.widget.ProgressBar
-import android.widget.Spinner
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.materialswitch.MaterialSwitch
+import com.google.android.material.progressindicator.LinearProgressIndicator
+import com.google.android.material.snackbar.Snackbar
+import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -24,73 +25,112 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Single-screen UI: pick how many IPs to scan, press scan, watch ranked results
- * appear. Deliberately minimal.
+ * Single-screen UI: choose how many IPs to scan, press scan, watch ranked results
+ * appear.
  *
- * The scan itself runs on background dispatchers inside [ScanEngine]; this class
- * only renders. Ranking is done off the main thread because sorting on every hit
- * was enough to make the app unresponsive.
+ * The scan runs on background dispatchers inside [ScanEngine]; this class only
+ * renders. Ranking happens off the main thread because sorting on every hit was
+ * enough to make the app unresponsive.
  */
 class MainActivity : AppCompatActivity() {
 
+    private lateinit var toolbar: MaterialToolbar
     private lateinit var statusText: TextView
-    private lateinit var progressBar: ProgressBar
-    private lateinit var scanButton: Button
-    private lateinit var copyButton: Button
-    private lateinit var countSpinner: Spinner
-    private lateinit var sortSpinner: Spinner
-    private lateinit var iranModeCheck: CheckBox
+    private lateinit var subStatusText: TextView
+    private lateinit var healthyBadge: TextView
+    private lateinit var progressBar: LinearProgressIndicator
+    private lateinit var scanButton: MaterialButton
+    private lateinit var copyButton: MaterialButton
+    private lateinit var countInput: MaterialAutoCompleteTextView
+    private lateinit var sortInput: MaterialAutoCompleteTextView
+    private lateinit var iranModeSwitch: MaterialSwitch
+    private lateinit var resultsHeader: TextView
+    private lateinit var emptyState: View
+    private lateinit var emptyTitle: TextView
+    private lateinit var emptyHint: TextView
     private lateinit var resultAdapter: ResultAdapter
 
     private var scanJob: Job? = null
     private val found = mutableListOf<ScanResult>()
+    private var hasScanned = false
 
     private val countOptions = listOf(100, 200, 300, 500, 800)
+    private var selectedCountIndex = 2   // default 300
+    private var selectedSortIndex = 0    // default SCORE
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        statusText = findViewById(R.id.statusText)
-        progressBar = findViewById(R.id.progressBar)
-        scanButton = findViewById(R.id.scanButton)
-        copyButton = findViewById(R.id.copyButton)
-        countSpinner = findViewById(R.id.countSpinner)
-        sortSpinner = findViewById(R.id.sortSpinner)
-        iranModeCheck = findViewById(R.id.iranModeCheck)
-
-        resultAdapter = ResultAdapter()
-        findViewById<RecyclerView>(R.id.resultList).apply {
-            layoutManager = LinearLayoutManager(this@MainActivity)
-            adapter = resultAdapter
-            setHasFixedSize(false)
-        }
-
-        countSpinner.adapter = ArrayAdapter(
-            this, android.R.layout.simple_spinner_dropdown_item,
-            countOptions.map { "$it آی‌پی" },
-        )
-        countSpinner.setSelection(2) // default 300
-
-        sortSpinner.adapter = ArrayAdapter(
-            this, android.R.layout.simple_spinner_dropdown_item,
-            SortBy.entries.map { it.label },
-        )
-        // Re-rank on a real selection event rather than guessing from a touch.
-        sortSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                resort()
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
-        }
+        bindViews()
+        setUpToolbar()
+        setUpDropdowns()
+        setUpList()
 
         scanButton.setOnClickListener { if (scanJob?.isActive == true) stopScan() else startScan() }
         copyButton.setOnClickListener { copyResults() }
+
+        renderEmptyState()
+    }
+
+    private fun bindViews() {
+        toolbar = findViewById(R.id.toolbar)
+        statusText = findViewById(R.id.statusText)
+        subStatusText = findViewById(R.id.subStatusText)
+        healthyBadge = findViewById(R.id.healthyBadge)
+        progressBar = findViewById(R.id.progressBar)
+        scanButton = findViewById(R.id.scanButton)
+        copyButton = findViewById(R.id.copyButton)
+        countInput = findViewById(R.id.countInput)
+        sortInput = findViewById(R.id.sortInput)
+        iranModeSwitch = findViewById(R.id.iranModeSwitch)
+        resultsHeader = findViewById(R.id.resultsHeader)
+        emptyState = findViewById(R.id.emptyState)
+        emptyTitle = emptyState.findViewById(R.id.emptyTitle)
+        emptyHint = emptyState.findViewById(R.id.emptyHint)
+    }
+
+    private fun setUpToolbar() {
+        toolbar.setOnMenuItemClickListener { item ->
+            if (item.itemId == R.id.action_about) {
+                showAbout()
+                true
+            } else {
+                false
+            }
+        }
+    }
+
+    private fun setUpDropdowns() {
+        val counts = countOptions.map { getString(R.string.label_count_value, it) }
+        countInput.setAdapter(
+            ArrayAdapter(this, android.R.layout.simple_list_item_1, counts),
+        )
+        countInput.setText(counts[selectedCountIndex], false)
+        countInput.setOnItemClickListener { _, _, position, _ -> selectedCountIndex = position }
+
+        val sorts = SortBy.entries.map { it.label }
+        sortInput.setAdapter(
+            ArrayAdapter(this, android.R.layout.simple_list_item_1, sorts),
+        )
+        sortInput.setText(sorts[selectedSortIndex], false)
+        sortInput.setOnItemClickListener { _, _, position, _ ->
+            selectedSortIndex = position
+            resort()
+        }
+    }
+
+    private fun setUpList() {
+        resultAdapter = ResultAdapter(onRowClick = { copySingle(it) })
+        findViewById<RecyclerView>(R.id.resultList).apply {
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            adapter = resultAdapter
+            isNestedScrollingEnabled = false
+        }
     }
 
     private fun currentSort(): SortBy =
-        SortBy.entries.getOrElse(sortSpinner.selectedItemPosition) { SortBy.SCORE }
+        SortBy.entries.getOrElse(selectedSortIndex) { SortBy.SCORE }
 
     /** Sorts on a background dispatcher, then swaps the list in on the main thread. */
     private fun resort() {
@@ -100,25 +140,32 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val ranked = withContext(Dispatchers.Default) { Ranking.sort(snapshot, criterion) }
             resultAdapter.submit(ranked)
+            renderResultsHeader()
         }
     }
 
     private fun startScan() {
         found.clear()
         resultAdapter.clear()
+        hasScanned = true
         copyButton.isEnabled = false
         progressBar.progress = 0
+        healthyBadge.visibility = View.GONE
+        subStatusText.visibility = View.GONE
         scanButton.setText(R.string.action_stop)
+        scanButton.setIconResource(R.drawable.ic_stop)
         setControlsEnabled(false)
+        renderEmptyState()
+        renderResultsHeader()
 
-        val count = countOptions.getOrElse(countSpinner.selectedItemPosition) { 300 }
-        val iranMode = iranModeCheck.isChecked
+        val count = countOptions.getOrElse(selectedCountIndex) { 300 }
+        val iranMode = iranModeSwitch.isChecked
 
         val config = ScanConfig(
             targetCount = count,
             preferIranFriendlyRanges = iranMode,
             // The idle hold proves an IP survives DPI, so keep it generous in
-            // Iran mode and quick otherwise.
+            // restricted-network mode and quick otherwise.
             idleHoldMs = if (iranMode) 2500 else 1200,
             testWebSocket = iranMode,
         )
@@ -128,54 +175,113 @@ class MainActivity : AppCompatActivity() {
         scanJob = lifecycleScope.launch {
             try {
                 val all = ScanEngine(config).scan(
-                    onProgress = { p ->
-                        progressBar.progress =
-                            if (p.total > 0) ((p.probed * 100) / p.total).coerceIn(0, 100) else 0
-                        statusText.text = getString(
-                            R.string.status_progress, p.probed, p.total, p.healthy,
-                        )
-                    },
+                    onProgress = { p -> renderProgress(p) },
                     onResult = { r ->
                         found.add(r)
                         copyButton.isEnabled = true
-                        // Sorting happens off the main thread inside resort().
-                        resort()
+                        resort() // sorting happens off the main thread
                     },
                 )
                 val healthy = Ranking.healthy(all)
-                statusText.text = getString(R.string.status_done, all.size, healthy.size)
+                statusText.setText(R.string.status_done)
+                subStatusText.text = getString(R.string.status_done_detail, all.size, healthy.size)
+                subStatusText.visibility = View.VISIBLE
+                progressBar.progress = 100
             } catch (_: CancellationException) {
                 statusText.setText(R.string.status_stopped)
             } catch (_: Exception) {
                 statusText.setText(R.string.status_error)
             } finally {
                 scanButton.setText(R.string.action_scan)
+                scanButton.setIconResource(R.drawable.ic_radar)
                 setControlsEnabled(true)
+                renderEmptyState()
             }
         }
     }
 
+    private fun renderProgress(p: ScanProgress) {
+        progressBar.progress =
+            if (p.total > 0) ((p.probed * 100) / p.total).coerceIn(0, 100) else 0
+        subStatusText.text = getString(R.string.status_progress, p.probed, p.total)
+        subStatusText.visibility = View.VISIBLE
+        if (p.healthy > 0) {
+            healthyBadge.text = getString(R.string.status_healthy_badge, p.healthy)
+            healthyBadge.visibility = View.VISIBLE
+        }
+    }
+
+    private fun renderResultsHeader() {
+        resultsHeader.text = if (found.isEmpty()) {
+            getString(R.string.label_results)
+        } else {
+            getString(R.string.label_results_count, found.size)
+        }
+    }
+
+    /** Shows the right empty message, or hides the block once there are rows. */
+    private fun renderEmptyState() {
+        val scanning = scanJob?.isActive == true
+        if (found.isNotEmpty()) {
+            emptyState.visibility = View.GONE
+            return
+        }
+        emptyState.visibility = View.VISIBLE
+        if (hasScanned && !scanning) {
+            emptyTitle.setText(R.string.empty_none_found)
+            emptyHint.setText(R.string.empty_none_found_hint)
+        } else {
+            emptyTitle.setText(R.string.empty_title)
+            emptyHint.setText(R.string.empty_hint)
+        }
+    }
+
     private fun setControlsEnabled(enabled: Boolean) {
-        countSpinner.isEnabled = enabled
-        iranModeCheck.isEnabled = enabled
+        countInput.isEnabled = enabled
+        iranModeSwitch.isEnabled = enabled
     }
 
     private fun stopScan() {
         scanJob?.cancel()
         scanJob = null
         scanButton.setText(R.string.action_scan)
+        scanButton.setIconResource(R.drawable.ic_radar)
         statusText.setText(R.string.status_stopped)
         setControlsEnabled(true)
+        renderEmptyState()
     }
 
     private fun copyResults() {
-        if (found.isEmpty()) {
-            Toast.makeText(this, R.string.toast_nothing, Toast.LENGTH_SHORT).show()
+        val items = resultAdapter.currentItems()
+        if (items.isEmpty()) {
+            snack(getString(R.string.toast_nothing))
             return
         }
+        copyToClipboard(resultAdapter.exportText())
+        snack(getString(R.string.toast_copied, items.size))
+    }
+
+    /** Tapping one row copies just that address — handy for a quick single test. */
+    private fun copySingle(r: ScanResult) {
+        copyToClipboard(r.ip)
+        snack(getString(R.string.toast_copied_one, r.ip))
+    }
+
+    private fun copyToClipboard(text: String) {
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("clean-cf-ips", resultAdapter.exportText()))
-        Toast.makeText(this, R.string.toast_copied, Toast.LENGTH_SHORT).show()
+        clipboard.setPrimaryClip(ClipData.newPlainText("clean-cf-ips", text))
+    }
+
+    private fun snack(message: String) {
+        Snackbar.make(findViewById(android.R.id.content), message, Snackbar.LENGTH_SHORT).show()
+    }
+
+    private fun showAbout() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.about_title)
+            .setMessage(R.string.about_body)
+            .setPositiveButton(R.string.about_close, null)
+            .show()
     }
 
     override fun onDestroy() {

@@ -55,11 +55,13 @@ Unhealthy results always sort below healthy ones, whichever sort criterion you p
 
 ## UI
 
-One screen:
-- Pick how many IPs to scan (100–800)
-- Choose the sort criterion (score / latency / jitter / loss)
-- **Iran mode** toggle — enables the long idle hold, WebSocket test, and biased sampling
-- Live progress, results appearing as they are found, colour-coded by grade
+Material 3, with light and dark themes and full RTL layout. One screen, everything reachable without navigation:
+
+- **Status card** — current state, live progress bar, and a green badge counting healthy finds
+- **Settings card** — dropdowns for scan size and sort criterion, plus a **restricted-network** switch carrying a one-line explanation of what it changes
+- **Scan / Stop** — one large primary button that swaps label and icon with state
+- **Results** — one card per IP: a rank badge tinted by grade, the address in monospace, the score with its grade, and compact metric chips (ping / jitter / loss / colo / WS). Loss is coloured when non-zero; the WS chip is highlighted since it signals real proxy-carry capability.
+- **Empty state** — distinguishes "not scanned yet" from "scan finished, nothing found", each with a useful hint
 - **Copy** puts a bare list of addresses on the clipboard — one IP per line, best first, nothing else:
 
   ```
@@ -69,6 +71,10 @@ One screen:
   ```
 
   No headers, comments, or metrics, so it can be pasted straight into a client config. `ResultExportTest` asserts the format.
+- **Tap a single row** to copy just that address, for testing one IP quickly
+- **About** in the toolbar explains the scoring model in plain language
+
+Controls that would corrupt an in-flight run are disabled while scanning; sort stays live so results can be re-ranked as they arrive.
 
 ## Threading
 
@@ -100,7 +106,7 @@ Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner
 - Every push/PR touching `apps/cf-scanner/**` runs the unit tests, builds the APK, and uploads it as an artifact
 - Pushing a tag `cf-scanner-v<version>` publishes the APK as a GitHub Release asset
 
-Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.0.3**.
+Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.0.4**.
 
 ## Details
 
