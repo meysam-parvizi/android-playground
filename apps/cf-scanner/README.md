@@ -60,7 +60,15 @@ One screen:
 - Choose the sort criterion (score / latency / jitter / loss)
 - **Iran mode** toggle — enables the long idle hold, WebSocket test, and biased sampling
 - Live progress, results appearing as they are found, colour-coded by grade
-- **Copy** exports the ranked list as text with the metrics as comments
+- **Copy** puts a bare list of addresses on the clipboard — one IP per line, best first, nothing else:
+
+  ```
+  104.16.132.229
+  172.64.80.1
+  188.114.97.3
+  ```
+
+  No headers, comments, or metrics, so it can be pasted straight into a client config. `ResultExportTest` asserts the format.
 
 ## Threading
 
@@ -92,7 +100,7 @@ Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner
 - Every push/PR touching `apps/cf-scanner/**` runs the unit tests, builds the APK, and uploads it as an artifact
 - Pushing a tag `cf-scanner-v<version>` publishes the APK as a GitHub Release asset
 
-Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.0.2**.
+Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.0.3**.
 
 ## Details
 

@@ -75,19 +75,11 @@ class ResultAdapter : RecyclerView.Adapter<ResultAdapter.Holder>() {
 
     override fun getItemCount(): Int = items.size
 
-    /** Plain-text export of the current list, in the order shown. */
-    fun exportText(): String = buildString {
-        appendLine("# Clean Cloudflare IPs — CF Scanner")
-        appendLine("# score/100 | avg ms | jitter ms | loss % | colo")
-        items.forEach { r ->
-            append(r.ip)
-            append("  # ")
-            append("${r.score()}/100")
-            append(" | ${r.avgMs()}ms")
-            append(" | ${r.jitterMs()}ms")
-            append(" | ${r.loss().toInt()}%")
-            if (r.colo.isNotEmpty()) append(" | ${r.colo}")
-            appendLine()
-        }
-    }
+    /** Snapshot of the results currently displayed, in display order. */
+    fun currentItems(): List<ScanResult> = items.toList()
+
+    /**
+     * Bare list of IPs in the order shown, best first — see [ResultExport.ipList].
+     */
+    fun exportText(): String = ResultExport.ipList(items)
 }
