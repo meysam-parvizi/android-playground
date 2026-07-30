@@ -77,6 +77,9 @@ class ScanEngineTest {
      *
      * Previously the engine wrapped everything in withContext(Dispatchers.IO) and
      * invoked callbacks there, so the UI was mutated off the main thread.
+     *
+     * The thread name is matched by prefix because the coroutines debug agent
+     * appends a " @coroutine#N" suffix to it.
      */
     @Test
     fun callbacksArriveOnMainDispatcher() = runBlocking {
@@ -88,9 +91,10 @@ class ScanEngineTest {
         )
 
         assertTrue("no callback was delivered at all", threads.isNotEmpty())
-        assertEquals(
-            "callbacks must be delivered on the main dispatcher, saw $threads",
-            setOf(MAIN_THREAD), threads,
+        val offMain = threads.filterNot { it.startsWith(MAIN_THREAD) }
+        assertTrue(
+            "callbacks must be delivered on the main dispatcher, but saw $offMain",
+            offMain.isEmpty(),
         )
     }
 
@@ -206,27 +210,41 @@ class ScanEngineTest {
     }
 
     /**
-     * Main-dispatcher callbacks must never overlap.
+     * Main-dispatcher callbacks must all run on the single main thread.
      *
-     * This is what makes it safe for the UI layer to touch views directly from
-     * them, and it proves the dispatch is genuinely serialised.
+     * This is what makes it safe for the UI layer to touch views from them.
+     *
+     * Note it asserts thread affinity, not mutual exclusion: a *suspending*
+     * callback yields at its suspension point and the dispatcher is free to
+     * start another one, so callbacks can legitimately interleave. What must
+     * never happen is two of them running on different threads at once.
      */
     @Test
-    fun mainCallbacksNeverOverlap() = runBlocking {
-        val inFlight = AtomicInteger(0)
-        val peak = AtomicInteger(0)
+    fun mainCallbacksAlwaysRunOnTheMainThread() = runBlocking {
+        val threads = Collections.synchronizedSet(mutableSetOf<String>())
+        val concurrentThreads = AtomicInteger(0)
+        val peakThreads = AtomicInteger(0)
+        val active = Collections.synchronizedSet(mutableSetOf<Long>())
 
         ScanEngine(fastFailConfig(count = 30, concurrency = 8)).scan(
             onProgress = {
-                val now = inFlight.incrementAndGet()
-                peak.updateAndGet { p -> maxOf(p, now) }
-                delay(1)
-                inFlight.decrementAndGet()
+                val id = Thread.currentThread().id
+                threads.add(Thread.currentThread().name)
+                active.add(id)
+                // Number of *distinct threads* inside a callback at this moment.
+                concurrentThreads.set(active.size)
+                peakThreads.updateAndGet { p -> maxOf(p, active.size) }
+                active.remove(id)
             },
             onResult = { },
         )
 
-        assertEquals("callbacks overlapped — they are not serialised", 1, peak.get())
+        val offMain = threads.filterNot { it.startsWith(MAIN_THREAD) }
+        assertTrue("callbacks ran off the main thread: $offMain", offMain.isEmpty())
+        assertEquals(
+            "callbacks must never run on more than one thread at a time",
+            1, peakThreads.get(),
+        )
     }
 
     @Test

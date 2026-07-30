@@ -6,6 +6,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -19,6 +20,8 @@ import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.SSLSocketFactory
 import javax.net.ssl.X509TrustManager
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /**
  * Probes a single IP to decide whether it is a genuinely usable Cloudflare edge.
@@ -92,7 +95,13 @@ class Prober(
                     socket = Socket()
                     socket.tcpNoDelay = true
                     socket.soTimeout = timeoutMs
-                    socket.connect(InetSocketAddress(ip, port), timeoutMs)
+
+                    // Socket.connect() blocks and does not observe coroutine
+                    // cancellation, so a cancelled scan would otherwise sit here
+                    // for the full timeout. Closing the socket from the
+                    // cancellation handler makes the blocked call throw at once.
+                    connectCancellable(socket, InetSocketAddress(ip, port))
+
                     val connectMs = (System.nanoTime() - started) / 1_000_000
 
                     if (port == 80) {
@@ -139,6 +148,28 @@ class Prober(
             }
 
             result
+        }
+
+    /**
+     * Connects [socket] to [address], aborting immediately if the coroutine is
+     * cancelled.
+     *
+     * `Socket.connect` is an uninterruptible blocking call: it neither checks
+     * nor responds to coroutine cancellation, so a cancelled scan used to keep
+     * threads parked until every connect timed out. Closing the socket from the
+     * cancellation handler forces the blocked call to fail straight away.
+     */
+    private suspend fun connectCancellable(socket: Socket, address: InetSocketAddress) =
+        suspendCancellableCoroutine { cont ->
+            cont.invokeOnCancellation {
+                try { socket.close() } catch (_: Exception) { }
+            }
+            try {
+                socket.connect(address, timeoutMs)
+                if (cont.isActive) cont.resume(Unit)
+            } catch (e: Throwable) {
+                if (cont.isActive) cont.resumeWithException(e)
+            }
         }
 
     /** Issues GET /cdn-cgi/trace and extracts the HTTP status plus colo code. */
@@ -250,7 +281,7 @@ class Prober(
             try {
                 socket = Socket()
                 socket.soTimeout = timeoutMs
-                socket.connect(InetSocketAddress(ip, port), timeoutMs)
+                connectCancellable(socket, InetSocketAddress(ip, port))
                 tls = (probeSocketFactory.createSocket(socket, sni, port, false) as SSLSocket).apply {
                     soTimeout = timeoutMs
                     sslParameters = sslParameters.apply { serverNames = listOf(SNIHostName(sni)) }
