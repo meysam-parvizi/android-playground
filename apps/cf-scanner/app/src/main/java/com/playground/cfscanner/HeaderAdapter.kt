@@ -57,6 +57,7 @@ class HeaderAdapter(
     class Holder(view: View) : RecyclerView.ViewHolder(view) {
         val statusText: TextView = view.findViewById(R.id.statusText)
         val subStatusText: TextView = view.findViewById(R.id.subStatusText)
+        val expandedNote: TextView = view.findViewById(R.id.expandedNote)
         val healthyBadge: TextView = view.findViewById(R.id.healthyBadge)
         val progressBar: LinearProgressIndicator = view.findViewById(R.id.progressBar)
         val scanButton: MaterialButton = view.findViewById(R.id.scanButton)
@@ -143,15 +144,27 @@ class HeaderAdapter(
                     Format.number(s.total),
                 )
             } else {
+                // Spell out the split rather than leaving the user to subtract:
+                // "125 tested: 61 healthy, 64 unhealthy".
                 ctx.getString(
                     R.string.status_done_detail,
                     Format.number(s.probed),
                     Format.number(s.healthy),
+                    Format.number(s.unhealthy),
                 )
             }
             holder.subStatusText.visibility = View.VISIBLE
         } else {
             holder.subStatusText.visibility = View.GONE
+        }
+
+        // Explain a count that overshot the request, which otherwise reads as a bug.
+        if (!s.isScanning && s.wasExpanded) {
+            holder.expandedNote.text =
+                ctx.getString(R.string.status_expanded_note, Format.number(s.expandedBy))
+            holder.expandedNote.visibility = View.VISIBLE
+        } else {
+            holder.expandedNote.visibility = View.GONE
         }
 
         holder.progressBar.progress = s.progressPercent

@@ -40,6 +40,9 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
     private val found = mutableListOf<ScanResult>()
     private var state = HeaderState()
 
+    /** The VPN warning is shown once per launch; see [confirmThenScan]. */
+    private var vpnWarningShown = false
+
     private val countOptions = listOf(100, 200, 300, 500, 800)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -95,7 +98,35 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
     // region header callbacks
 
     override fun onScanToggle() {
-        if (state.isScanning) stopScan() else startScan()
+        if (state.isScanning) stopScan() else confirmThenScan()
+    }
+
+    /**
+     * Shows the VPN warning before the first scan of the session, then scans.
+     *
+     * Warned once per launch rather than every time: a scan is often repeated
+     * several times in a row, and a dialog on each would just be dismissed
+     * reflexively. If a VPN is actually detected the warning is shown again, since
+     * in that case it is not advice but a concrete problem with the results.
+     */
+    private fun confirmThenScan() {
+        val vpnActive = VpnDetector.isActive(this)
+        if (vpnWarningShown && !vpnActive) {
+            startScan()
+            return
+        }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.vpn_dialog_title)
+            .setMessage(R.string.vpn_dialog_body)
+            .setPositiveButton(R.string.vpn_dialog_scan) { _, _ ->
+                vpnWarningShown = true
+                startScan()
+            }
+            .setNegativeButton(R.string.vpn_dialog_cancel, null)
+            .show()
+
+        if (vpnActive) snack(getString(R.string.vpn_active_warning))
     }
 
     override fun onCopy() {
@@ -131,7 +162,14 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
 
         val count = countOptions.getOrElse(state.countIndex) { 300 }
         setState {
-            it.copy(phase = ScanPhase.SCANNING, probed = 0, total = count, healthy = 0, resultCount = 0)
+            it.copy(
+                phase = ScanPhase.SCANNING,
+                probed = 0,
+                total = count,
+                healthy = 0,
+                resultCount = 0,
+                requested = count,
+            )
         }
 
         val iranMode = state.iranMode

@@ -83,6 +83,21 @@
                 android:progress="0"
                 app:trackCornerRadius="4dp"
                 app:trackThickness="6dp" />
+
+            <!--
+              Explains a tested count that exceeded the requested one. Without it
+              "125 tested" after asking for 100 reads as a bug.
+            -->
+            <TextView
+                android:id="@+id/expandedNote"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:textAppearance="@style/TextAppearance.CfScanner.BodySmall"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                android:visibility="gone"
+                tools:text="۲۵ آی‌پی اضافه: کنار هر آی‌پی سالم، آدرس‌های همسایه هم تست شدند"
+                tools:visibility="visible" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
@@ -133,6 +148,16 @@
                         android:inputType="none"
                         tools:ignore="LabelFor,SpeakableTextPresentCheck" />
                 </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- Says what the number actually controls. -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:layout_marginHorizontal="4dp"
+                    android:text="@string/label_count_helper"
+                    android:textAppearance="@style/TextAppearance.CfScanner.BodySmall"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/sortField"

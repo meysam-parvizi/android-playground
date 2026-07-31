@@ -58,7 +58,7 @@ Unhealthy results always sort below healthy ones, whichever sort criterion you p
 Material 3, with light and dark themes and full RTL layout. One screen, everything reachable without navigation:
 
 - **Status card** — current state, live progress bar, and a green badge counting healthy finds
-- **Settings card** — dropdowns for scan size and sort criterion, plus a **restricted-network** switch carrying a one-line explanation of what it changes
+- **Settings card** — how many addresses to test, sort criterion, and a **restricted-network** switch carrying a one-line explanation of what it changes
 - **Scan / Stop** — one large primary button that swaps label and icon with state
 - **Results** — one card per IP: a rank badge tinted by grade, the address in monospace, the score with its grade, and compact metric chips (ping / jitter / loss / colo / WS). Loss is coloured when non-zero; the WS chip is highlighted since it signals real proxy-carry capability.
 - **Empty state** — distinguishes "not scanned yet" from "scan finished, nothing found", each with a useful hint
@@ -72,9 +72,27 @@ Material 3, with light and dark themes and full RTL layout. One screen, everythi
 
   No headers, comments, or metrics, so it can be pasted straight into a client config. `ResultExportTest` asserts the format.
 - **Tap a single row** to copy just that address, for testing one IP quickly
-- **About** in the toolbar explains the scoring model in plain language
+- **About** in the toolbar explains the scoring model and what each number means
 
 Controls that would corrupt an in-flight run are disabled while scanning; sort stays live so results can be re-ranked as they arrive.
+
+### Making the numbers self-explanatory
+
+The counts used to be ambiguous. Asking for 100 addresses and being told "125 tested · 61 healthy" raises two questions the UI never answered: what happened to the other 64, and why 125 rather than 100.
+
+- The field is labelled **"how many IPs should be tested?"** with helper text saying they are drawn at random from Cloudflare's ranges — so it cannot be misread as "how many healthy ones to find".
+- The summary spells out the split: **"125 tested: 61 healthy, 64 unhealthy"**, rather than leaving the user to subtract.
+- When neighbour expansion tests extra addresses, a note explains it: **"25 extra: addresses next to each healthy IP were also tested"**.
+
+`HeaderStateTest` asserts both sums close — `healthy + unhealthy == tested` and `requested + expansion == tested` — so a displayed breakdown can never contradict itself.
+
+### VPN warning
+
+Before the first scan of a session the app warns that a VPN, proxy, or custom DNS must be switched off.
+
+This is about correctness, not etiquette: with a tunnel active every probe travels through it, so the measured latency and stability describe the tunnel rather than the network the results will be used on. A scan run over a VPN can rank an IP as excellent that is unusable once the VPN is off.
+
+`VpnDetector` checks the active network for `TRANSPORT_VPN`. Detection is best-effort — some tunnels are indistinguishable at that level — so it is used to *strengthen* a warning that appears regardless, never to block a scan. The warning is shown once per launch, but reappears whenever a VPN is actually detected.
 
 ### Typography
 
@@ -193,7 +211,7 @@ Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner
 - Every push/PR touching `apps/cf-scanner/**` runs the unit tests, builds the APK, and uploads it as an artifact
 - Pushing a tag `cf-scanner-v<version>` publishes the APK as a GitHub Release asset
 
-Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.1.0**.
+Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.2.0**.
 
 ## Details
 

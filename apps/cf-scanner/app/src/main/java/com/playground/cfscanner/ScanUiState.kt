@@ -80,10 +80,34 @@ data class HeaderState(
     val countIndex: Int = 2,
     val sortIndex: Int = 0,
     val iranMode: Boolean = true,
+    /**
+     * How many addresses the user asked for, as opposed to how many ended up
+     * being tested.
+     *
+     * Kept separate from [total] so the UI can explain the difference. Neighbour
+     * expansion tests extra addresses beside each healthy hit, so a scan of 100
+     * can legitimately report 125 tested — which looks like a bug unless it is
+     * spelled out.
+     */
+    val requested: Int = 0,
 ) {
     val isScanning: Boolean get() = phase == ScanPhase.SCANNING
 
     /** Progress as a percentage, clamped for display. */
     val progressPercent: Int
         get() = if (total > 0) ((probed * 100) / total).coerceIn(0, 100) else 0
+
+    /**
+     * Addresses that were tested and failed.
+     *
+     * Shown explicitly because "125 tested · 61 healthy" left the user to work
+     * out that the other 64 had failed.
+     */
+    val unhealthy: Int get() = (probed - healthy).coerceAtLeast(0)
+
+    /** Extra addresses tested beyond the requested count, via neighbour expansion. */
+    val expandedBy: Int get() = (probed - requested).coerceAtLeast(0)
+
+    /** True when expansion added enough to be worth explaining. */
+    val wasExpanded: Boolean get() = requested > 0 && expandedBy > 0
 }

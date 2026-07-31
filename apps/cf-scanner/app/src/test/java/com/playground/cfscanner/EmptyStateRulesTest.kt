@@ -136,4 +136,55 @@ class HeaderStateTest {
             assertEquals("$phase must not report scanning", false, HeaderState(phase = phase).isScanning)
         }
     }
+
+    /**
+     * The reported numbers must add up, in both directions.
+     *
+     * A user asked for 100 addresses and the summary read "125 tested, 61
+     * healthy", leaving two unexplained gaps: what happened to the other 64, and
+     * why 125 rather than 100. Both are now derived and displayed.
+     */
+    @Test
+    fun testedSplitsIntoHealthyAndUnhealthy() {
+        val s = HeaderState(requested = 100, probed = 125, healthy = 61)
+        assertEquals(64, s.unhealthy)
+        assertEquals("healthy + unhealthy must equal tested", s.probed, s.healthy + s.unhealthy)
+    }
+
+    @Test
+    fun requestedPlusExpansionEqualsTested() {
+        val s = HeaderState(requested = 100, probed = 125, healthy = 61)
+        assertEquals(25, s.expandedBy)
+        assertEquals(true, s.wasExpanded)
+        assertEquals("requested + expansion must equal tested", s.probed, s.requested + s.expandedBy)
+    }
+
+    @Test
+    fun noExpansionIsNotReportedAsExpansion() {
+        // A scan that tested exactly what was asked has nothing to explain.
+        val exact = HeaderState(requested = 100, probed = 100, healthy = 0)
+        assertEquals(0, exact.expandedBy)
+        assertEquals(false, exact.wasExpanded)
+
+        // Nor does a scan that was stopped early.
+        val short = HeaderState(requested = 100, probed = 40, healthy = 5)
+        assertEquals(0, short.expandedBy)
+        assertEquals(false, short.wasExpanded)
+    }
+
+    @Test
+    fun derivedCountsNeverGoNegative() {
+        // Defensive: healthy can briefly lead probed if callbacks interleave.
+        val odd = HeaderState(requested = 100, probed = 5, healthy = 9)
+        assertEquals(0, odd.unhealthy)
+        assertEquals(0, HeaderState(requested = 0, probed = 0, healthy = 0).expandedBy)
+    }
+
+    @Test
+    fun expansionIsNotClaimedWithoutARequest() {
+        // requested == 0 means the scan never started, so there is no baseline to
+        // compare against and no expansion to report.
+        val s = HeaderState(requested = 0, probed = 30, healthy = 3)
+        assertEquals(false, s.wasExpanded)
+    }
 }

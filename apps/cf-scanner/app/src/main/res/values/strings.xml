@@ -3,13 +3,20 @@
     <string name="app_name">CF Scanner</string>
 
     <string name="section_settings">تنظیمات اسکن</string>
-    <string name="label_count">تعداد آی‌پی</string>
-    <string name="label_sort">مرتب‌سازی</string>
+
+    <!-- "تعداد آی‌پی" alone was ambiguous: users could not tell whether it meant
+         how many to test or how many healthy ones to find. The label now says
+         what the number does, and the helper text under the field explains that
+         extra addresses may be tested on top of it. -->
+    <string name="label_count">چند آی‌پی تست شود؟</string>
+    <string name="label_count_helper">از میان رنج‌های کلادفلر به‌صورت تصادفی انتخاب می‌شوند</string>
+    <string name="label_sort">مرتب‌سازی نتایج</string>
+
     <string name="label_iran_mode">حالت شبکه‌ی محدود</string>
     <!-- The Latin word is wrapped in directional isolates (U+2068 / U+2069) so
-         the bidi algorithm cannot drag it out of position. Without them this line
-         rendered as "؛ دقیق‌تر WebSocket تست پایداری اتصال و". -->
+         the bidi algorithm cannot drag it out of position. -->
     <string name="label_iran_mode_hint">تست پایداری اتصال و \u2068WebSocket\u2069؛ دقیق‌تر ولی کمی کندتر</string>
+
     <string name="label_results">نتایج</string>
     <string name="label_results_count">نتایج (%1$s)</string>
 
@@ -20,16 +27,20 @@
 
     <string name="status_idle">آماده‌ی اسکن</string>
     <string name="status_scanning">در حال اسکن…</string>
-    <string name="status_progress">بررسی %1$s از %2$s</string>
+    <!-- Spelling out "تست‌شده" and "سالم" so the two numbers cannot be confused
+         with each other, and stating the target rather than a bare total. -->
+    <string name="status_progress">%1$s آی‌پی تست شد از %2$s</string>
     <string name="status_done">اسکن کامل شد</string>
-    <string name="status_done_detail">%1$s آی‌پی بررسی شد · %2$s سالم</string>
+    <!-- Reads as a breakdown: tested = healthy + unhealthy. Previously "۱۲۵ آی‌پی
+         بررسی شد · ۶۱ سالم" left the user to infer the 64 failures. -->
+    <string name="status_done_detail">%1$s تست شد: %2$s سالم، %3$s ناسالم</string>
     <string name="status_stopped">اسکن متوقف شد</string>
     <string name="status_error">خطا در اسکن</string>
     <string name="status_healthy_badge">%1$s سالم</string>
+    <!-- Shown when neighbour expansion pushed the count past what was requested,
+         which otherwise looks like a bug ("125 of 100"). -->
+    <string name="status_expanded_note">%1$s آی‌پی اضافه: کنار هر آی‌پی سالم، آدرس‌های همسایه هم تست شدند</string>
 
-    <!-- Placeholder copy. Each scan phase gets its own wording: suggesting the
-         user retry while a scan is still running would be misleading, since a
-         result may yet arrive. -->
     <string name="empty_title">هنوز نتیجه‌ای نیست</string>
     <string name="empty_hint">دکمه‌ی شروع اسکن را بزنید تا آی‌پی‌های سالم کلادفلر پیدا و رتبه‌بندی شوند.</string>
     <string name="empty_searching">در حال جستجوی آی‌پی سالم…</string>
@@ -41,6 +52,16 @@
     <string name="empty_error">اسکن انجام نشد</string>
     <string name="empty_error_hint">اتصال اینترنت را بررسی کنید و دوباره تلاش کنید.</string>
 
+    <!-- VPN warning. Shown once per app launch before the first scan: with a VPN
+         or proxy active the traffic does not take the real path, so the measured
+         latency and stability describe the tunnel rather than the network the
+         results will actually be used on. -->
+    <string name="vpn_dialog_title">قبل از شروع، VPN را خاموش کنید</string>
+    <string name="vpn_dialog_body">اگر \u2068VPN\u2069، پروکسی یا \u2068DNS\u2069 اختصاصی روی گوشی فعال باشد، ترافیک اسکن از همان مسیر عبور می‌کند و نتیجه‌ای که می‌بینید مربوط به تونل است، نه شبکه‌ی واقعی.\n\nبرای اینکه بفهمید کدام آی‌پی‌ها در شرایط محدودیت اینترنت واقعاً کار می‌کنند، اسکن باید روی اتصال معمولی و بدون واسطه انجام شود.\n\nهمه‌ی \u2068VPN\u2069ها را قطع کنید، بعد اسکن را شروع کنید.</string>
+    <string name="vpn_dialog_scan">قطع کردم، شروع کن</string>
+    <string name="vpn_dialog_cancel">بعداً</string>
+    <string name="vpn_active_warning">به نظر می‌رسد \u2068VPN\u2069 فعال است — نتایج ممکن است واقعی نباشند</string>
+
     <!-- Values arrive pre-formatted and directionally isolated, so the label sits
          cleanly to the right of the number in an RTL layout. "اتلاف" is the
          standard Persian term for packet loss. -->
@@ -50,8 +71,7 @@
     <string name="chip_ws">\u2068WebSocket\u2069</string>
     <!-- Grade then score, separated by non-breaking spaces rather than a middle
          dot: next to a Persian numeral the dot was easily misread as another
-         digit ("۱۰۰ · عالی" looked like it ended in a zero). Ordinary spaces
-         would be collapsed, so the gap is explicit. -->
+         digit ("۱۰۰ · عالی" looked like it ended in a zero). -->
     <string name="score_and_grade">%2$s\u00A0\u00A0%1$s</string>
 
     <string name="toast_copied">%1$s آی‌پی کپی شد</string>
@@ -59,6 +79,6 @@
     <string name="toast_nothing">نتیجه‌ای برای کپی وجود ندارد</string>
 
     <string name="about_title">درباره‌ی CF Scanner</string>
-    <string name="about_body">این اپ رنج‌های رسمی کلادفلر را اسکن می‌کند و آی‌پی‌هایی را که واقعاً قابل استفاده‌اند رتبه‌بندی می‌کند.\n\nهر آی‌پی چند مرحله تست می‌شود: اتصال \u2068TCP\u2069، هندشیک \u2068TLS\u2069، تأیید واقعی بودن سرور کلادفلر، و مهم‌تر از همه نگه‌داشتن اتصال بی‌کار تا مشخص شود توسط فایروال قطع نمی‌شود.\n\nامتیازدهی پایداری و یکنواختی را مهم‌تر از سرعت خام می‌داند؛ یعنی یک آی‌پی پایدار با پینگ ۲۵۰ بالاتر از یک آی‌پی ناپایدار با پینگ ۳۰ قرار می‌گیرد.\n\nبرای کپی یک آی‌پی، روی همان ردیف بزنید. دکمه‌ی کپی، تمام لیست را به ترتیب رتبه کپی می‌کند.\n\nنتایج یک عکس لحظه‌ای هستند — رفتار شبکه مدام تغییر می‌کند، پس هر وقت آی‌پی‌ها از کار افتادند دوباره اسکن کنید.</string>
+    <string name="about_body">این اپ رنج‌های رسمی کلادفلر را اسکن می‌کند و آی‌پی‌هایی را که واقعاً قابل استفاده‌اند رتبه‌بندی می‌کند.\n\n<b>اعداد یعنی چه؟</b>\n«چند آی‌پی تست شود» تعداد آدرس‌هایی است که به‌صورت تصادفی از رنج‌های کلادفلر انتخاب و تست می‌شوند — نه تعداد آی‌پی سالمی که پیدا خواهد شد.\n\nممکن است تعداد تست‌شده از عدد انتخابی شما بیشتر شود: هر بار یک آی‌پی سالم پیدا شود، آدرس‌های همسایه‌اش هم تست می‌شوند، چون سرورهای کلادفلر معمولاً کنار هم قرار دارند.\n\n«سالم» یعنی آی‌پی همه‌ی تست‌ها را با موفقیت گذرانده. بقیه‌ی آی‌پی‌های تست‌شده ناسالم بوده‌اند و در لیست نمایش داده نمی‌شوند.\n\n<b>هر آی‌پی چطور تست می‌شود؟</b>\nاتصال \u2068TCP\u2069، هندشیک \u2068TLS\u2069، تأیید واقعی بودن سرور کلادفلر، و مهم‌تر از همه نگه‌داشتن اتصال بی‌کار تا مشخص شود توسط فایروال قطع نمی‌شود.\n\nامتیازدهی پایداری و یکنواختی را مهم‌تر از سرعت خام می‌داند؛ یعنی یک آی‌پی پایدار با پینگ ۲۵۰ بالاتر از یک آی‌پی ناپایدار با پینگ ۳۰ قرار می‌گیرد.\n\n<b>نکته‌ی مهم</b>\nحین اسکن \u2068VPN\u2069 را خاموش کنید، وگرنه نتایج مربوط به تونل خواهد بود نه شبکه‌ی واقعی.\n\nبرای کپی یک آی‌پی، روی همان ردیف بزنید. دکمه‌ی کپی، تمام لیست را به ترتیب رتبه کپی می‌کند.\n\nنتایج یک عکس لحظه‌ای هستند — رفتار شبکه مدام تغییر می‌کند، پس هر وقت آی‌پی‌ها از کار افتادند دوباره اسکن کنید.</string>
     <string name="about_close">بستن</string>
 </resources>
