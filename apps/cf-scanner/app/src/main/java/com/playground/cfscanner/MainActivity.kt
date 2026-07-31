@@ -161,10 +161,13 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
                 // Flush any debounced re-rank so the final list is complete.
                 resort(immediate = true)
                 setState {
+                    // Keep the counts the engine last reported: neighbour
+                    // expansion means the number probed is not the number
+                    // originally requested, and showing "334 of 300" is nonsense.
                     it.copy(
                         phase = ScanPhase.FINISHED,
                         probed = all.size,
-                        total = all.size.coerceAtLeast(1),
+                        total = all.size,
                         healthy = Ranking.healthy(all).size,
                         resultCount = found.size,
                     )

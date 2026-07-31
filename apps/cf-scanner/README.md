@@ -51,7 +51,7 @@ Unhealthy results always sort below healthy ones, whichever sort criterion you p
 - **Colo-distance penalty** — far colos are down-weighted for Iranian users
 - **Real jitter** via standard deviation across attempts, not a single sample
 - **Weighted sampling** — 70% of candidates drawn from ranges that historically behave better from Iran, 30% from the full list so unusual-but-good edges still surface
-- **Neighbour expansion** — Cloudflare edges cluster, so a hit triggers probing of adjacent addresses (cheap, high yield)
+- **Neighbour expansion** — Cloudflare edges cluster, so a hit triggers probing of adjacent addresses (cheap, high yield). Capped at 25% of the requested scan size so a healthy network cannot extend the scan indefinitely, and the progress total grows with the extra work rather than staying fixed — otherwise a scan reports nonsense like "checking 334 of 300".
 
 ## UI
 
@@ -144,7 +144,7 @@ Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner
 - Every push/PR touching `apps/cf-scanner/**` runs the unit tests, builds the APK, and uploads it as an artifact
 - Pushing a tag `cf-scanner-v<version>` publishes the APK as a GitHub Release asset
 
-Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.0.6**.
+Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.0.7**.
 
 ## Details
 

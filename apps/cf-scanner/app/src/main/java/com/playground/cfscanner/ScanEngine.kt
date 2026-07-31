@@ -28,6 +28,16 @@ data class ScanConfig(
     /** After a healthy hit, also probe its immediate neighbours. */
     val expandNeighbors: Boolean = true,
     /**
+     * Upper bound on extra probes added by neighbour expansion, as a fraction of
+     * [targetCount].
+     *
+     * Expansion is valuable — Cloudflare edges cluster, so the addresses next to
+     * a working one often work too — but it must not run away. On a good network
+     * a large share of probes succeed, and unbounded expansion would keep queueing
+     * neighbours long past the requested scan size.
+     */
+    val neighborBudgetRatio: Double = 0.25,
+    /**
      * Minimum gap between progress callbacks, in milliseconds.
      *
      * Without throttling, hundreds of probes per second each trigger a UI
@@ -37,7 +47,13 @@ data class ScanConfig(
     val progressThrottleMs: Long = 150,
 )
 
-/** Live progress pushed to the UI. */
+/**
+ * Live progress pushed to the UI.
+ *
+ * [total] is the number of probes currently planned, not a fixed target: it grows
+ * when neighbour expansion queues extra addresses. Reporting a fixed target is
+ * what produced the nonsensical "checking 334 of 300".
+ */
 data class ScanProgress(
     val probed: Int,
     val total: Int,
@@ -80,7 +96,17 @@ class ScanEngine(private val config: ScanConfig = ScanConfig()) {
         val lastProgressAt = AtomicLong(0)
 
         val candidates = withContext(Dispatchers.Default) { sampleIps(config.targetCount) }
-        val total = candidates.size
+
+        // Planned work grows as neighbours are queued, so progress never exceeds
+        // its own total.
+        val planned = AtomicInteger(candidates.size)
+
+        // Hard cap on expansion so a healthy network cannot extend the scan
+        // indefinitely.
+        val neighborBudget = AtomicInteger(
+            (config.targetCount * config.neighborBudgetRatio).toInt().coerceAtLeast(0),
+        )
+
         val gate = Semaphore(config.concurrency)
 
         coroutineScope {
@@ -88,10 +114,15 @@ class ScanEngine(private val config: ScanConfig = ScanConfig()) {
                 launch(Dispatchers.IO) {
                     gate.withPermit {
                         currentCoroutineContext().ensureActive()
-                        if (!seen.add(ip)) return@withPermit
+                        if (!seen.add(ip)) {
+                            // Duplicate sample: it will never be probed, so drop
+                            // it from the plan to keep the total honest.
+                            planned.decrementAndGet()
+                            return@withPermit
+                        }
 
                         val r = probeAndReport(
-                            prober, ip, results, probed, healthyCount, total,
+                            prober, ip, results, probed, healthyCount, planned,
                             lastProgressAt, onProgress, onResult,
                         )
 
@@ -101,12 +132,15 @@ class ScanEngine(private val config: ScanConfig = ScanConfig()) {
                         if (config.expandNeighbors && r.isHealthy()) {
                             for (neighbor in neighborsOf(ip)) {
                                 currentCoroutineContext().ensureActive()
-                                if (seen.add(neighbor)) {
-                                    probeAndReport(
-                                        prober, neighbor, results, probed, healthyCount,
-                                        total, lastProgressAt, onProgress, onResult,
-                                    )
-                                }
+                                if (!claimNeighborBudget(neighborBudget)) break
+                                if (!seen.add(neighbor)) continue
+
+                                // Announce the extra work before doing it.
+                                planned.incrementAndGet()
+                                probeAndReport(
+                                    prober, neighbor, results, probed, healthyCount,
+                                    planned, lastProgressAt, onProgress, onResult,
+                                )
                             }
                         }
                     }
@@ -114,13 +148,22 @@ class ScanEngine(private val config: ScanConfig = ScanConfig()) {
             }
         }
 
-        // Final progress tick so the UI never ends stuck mid-way.
+        // Final tick so the UI never ends stuck mid-way, and so probed == total.
         withContext(Dispatchers.Main) {
-            onProgress(ScanProgress(probed.get(), total, healthyCount.get(), ""))
+            onProgress(ScanProgress(probed.get(), planned.get(), healthyCount.get(), ""))
         }
 
         return withContext(Dispatchers.Default) {
             Ranking.sort(results.toList(), SortBy.SCORE)
+        }
+    }
+
+    /** Atomically takes one unit of expansion budget; false when exhausted. */
+    private fun claimNeighborBudget(budget: AtomicInteger): Boolean {
+        while (true) {
+            val remaining = budget.get()
+            if (remaining <= 0) return false
+            if (budget.compareAndSet(remaining, remaining - 1)) return true
         }
     }
 
@@ -130,7 +173,7 @@ class ScanEngine(private val config: ScanConfig = ScanConfig()) {
         results: MutableList<ScanResult>,
         probed: AtomicInteger,
         healthyCount: AtomicInteger,
-        total: Int,
+        planned: AtomicInteger,
         lastProgressAt: AtomicLong,
         onProgress: suspend (ScanProgress) -> Unit,
         onResult: suspend (ScanResult) -> Unit,
@@ -156,6 +199,7 @@ class ScanEngine(private val config: ScanConfig = ScanConfig()) {
         // otherwise and starves the main thread.
         val now = System.currentTimeMillis()
         val previous = lastProgressAt.get()
+        val total = planned.get()
         val isLast = done >= total
         if (isLast || now - previous >= config.progressThrottleMs) {
             if (lastProgressAt.compareAndSet(previous, now)) {

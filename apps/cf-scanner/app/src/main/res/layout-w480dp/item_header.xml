@@ -205,10 +205,15 @@
         app:icon="@drawable/ic_radar"
         app:iconGravity="textStart" />
 
+    <!--
+      Results header. The bottom margin separates it from the first result card;
+      without it the card sat flush against the Copy button.
+    -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="20dp"
+        android:layout_marginBottom="10dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:baselineAligned="false">

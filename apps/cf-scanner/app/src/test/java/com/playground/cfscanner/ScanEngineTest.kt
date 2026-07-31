@@ -255,6 +255,78 @@ class ScanEngineTest {
         assertEquals("sampler must not return duplicates", sampled.size, sampled.distinct().size)
     }
 
+    /**
+     * Progress must never exceed its own total.
+     *
+     * Neighbour expansion probes addresses beyond the sampled candidates. The
+     * total used to be fixed at the sample size, so a scan reported nonsense like
+     * "checking 334 of 300". The planned total now grows with the extra work.
+     */
+    @Test
+    fun probedNeverExceedsReportedTotal() = runBlocking {
+        val seen = Collections.synchronizedList(mutableListOf<ScanProgress>())
+
+        ScanEngine(fastFailConfig(count = 20, concurrency = 5)).scan(
+            onProgress = { seen.add(it) },
+            onResult = { },
+        )
+
+        assertTrue("expected progress callbacks", seen.isNotEmpty())
+        for (p in seen) {
+            assertTrue(
+                "probed ${p.probed} exceeded total ${p.total}",
+                p.probed <= p.total,
+            )
+        }
+    }
+
+    /** The last tick must show the scan as complete, not stuck part-way. */
+    @Test
+    fun finalTickReportsProbedEqualToTotal() = runBlocking {
+        var last: ScanProgress? = null
+        ScanEngine(fastFailConfig(count = 12, concurrency = 4, throttleMs = 60_000)).scan(
+            onProgress = { last = it },
+            onResult = { },
+        )
+        assertNotNull(last)
+        assertEquals("a finished scan must read as complete", last!!.total, last!!.probed)
+    }
+
+    /**
+     * Neighbour expansion has to stay bounded.
+     *
+     * Unbounded, a network where most probes succeed would keep queueing
+     * neighbours and the scan would run far past the requested size.
+     */
+    @Test
+    fun neighborExpansionRespectsItsBudget() = runBlocking {
+        val requested = 20
+        val ratio = 0.25
+        var last: ScanProgress? = null
+
+        ScanEngine(
+            ScanConfig(
+                targetCount = requested,
+                concurrency = 5,
+                port = DISCARD_PORT,
+                tries = 1,
+                timeoutMs = 200,
+                idleHoldMs = 100,
+                testWebSocket = false,
+                expandNeighbors = true,
+                neighborBudgetRatio = ratio,
+                progressThrottleMs = 0,
+            ),
+        ).scan(onProgress = { last = it }, onResult = { })
+
+        assertNotNull(last)
+        val ceiling = requested + (requested * ratio).toInt()
+        assertTrue(
+            "planned total ${last!!.total} exceeded the budget ceiling $ceiling",
+            last!!.total <= ceiling,
+        )
+    }
+
     private companion object {
         const val MAIN_THREAD = "cf-test-main"
         /** TCP discard: reliably closed on loopback, so connects fail immediately. */
