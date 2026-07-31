@@ -78,6 +78,37 @@ class EmptyStateRulesTest {
             )
         }
     }
+
+    /**
+     * Regression: the very first moment of a scan must not claim failure.
+     *
+     * The 0.0.5 bug was an ordering hazard — the placeholder was chosen from
+     * `scanJob?.isActive`, and the job had not been assigned yet, so a scan that
+     * had just started looked finished and showed "no healthy IP found" while the
+     * status line read "checking 1 of 300".
+     *
+     * Deriving the placeholder from an explicit phase removes the hazard: the
+     * instant the phase is SCANNING, the copy is correct regardless of what any
+     * coroutine has or has not been created yet.
+     */
+    @Test
+    fun theFirstProbeOfAScanDoesNotReportFailure() {
+        // probed == 1, total == 300, nothing found yet: mid-scan, not a failure.
+        val midScan = HeaderState(
+            phase = ScanPhase.SCANNING,
+            probed = 1,
+            total = 300,
+            healthy = 0,
+            resultCount = 0,
+        )
+        val content = EmptyStateRules.contentFor(midScan.phase, midScan.resultCount)
+
+        assertEquals(R.string.empty_searching, content?.titleRes)
+        assertNotEquals(
+            "a scan on its first probe must not be reported as having found nothing",
+            R.string.empty_none_found, content?.titleRes,
+        )
+    }
 }
 
 /** Tests for the header state's derived values. */
