@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -31,7 +33,9 @@ val keystoreFromEnv: File? = System.getenv("CFS_KEYSTORE_BASE64")
         // Materialise the secret into the build directory, never the source tree.
         val out = File(layout.buildDirectory.get().asFile, "signing/from-secret.jks")
         out.parentFile.mkdirs()
-        out.writeBytes(java.util.Base64.getDecoder().decode(encoded.trim()))
+        // Imported at the top of the file: inside a Kotlin build script the bare
+        // `java` prefix resolves to Gradle's java extension, not the JDK package.
+        out.writeBytes(Base64.getDecoder().decode(encoded.trim()))
         out
     }
 
