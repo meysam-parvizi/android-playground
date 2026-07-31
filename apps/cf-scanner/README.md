@@ -204,6 +204,26 @@ Then delete `keystore/cf-scanner-release.jks` so the fallback cannot silently ma
 
 **Changing the key changes the signature**, so every existing install will need to be removed once more. Keep a backup of whichever keystore you settle on: lose it and you can never ship an update to installed copies.
 
+## Versioning
+
+[Semantic Versioning](https://semver.org), decided from the change itself rather than from how significant it feels:
+
+| Bump | When | Example from this app |
+|------|------|----------------------|
+| **MAJOR** `1.0.0` | A change that breaks how the app is used, or requires action from existing users | Changing the signing key (forces an uninstall) |
+| **MINOR** `0.x.0` | A new user-visible capability, backward compatible | The VPN warning dialog; the Copy button |
+| **PATCH** `0.0.x` | Bug fixes, wording, styling, performance, refactors — no new capability | The scroll-stutter fix; clearer count labels; the Vazirmatn font |
+
+`versionCode` increments by one on every release regardless, since Android requires it to be monotonic.
+
+While the version is `0.y.z` the app is pre-1.0 and the surface may still shift; MINOR carries the weight MAJOR would after 1.0.
+
+### Honest note on history
+
+Versions `0.0.1`–`0.0.8` do not follow this policy. Everything was filed as a patch, including the full Material 3 redesign in `0.0.4`, which added user-visible capability and should have been a MINOR. The rule above was written down after that inconsistency was pointed out; releases from `0.2.0` onward follow it.
+
+`0.2.0` itself is a borderline call: it was mostly clarification work, which is PATCH, but it also added the VPN warning, which is a new capability — so MINOR is defensible. Had it been only the wording changes, it should have been `0.1.1`.
+
 ## CI / Releases
 
 Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner.yml):

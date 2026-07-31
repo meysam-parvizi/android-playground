@@ -42,3 +42,17 @@ Each app is versioned and released independently using a tag prefix:
 - `cf-scanner-v0.0.1`, `cf-scanner-v0.0.2`, …
 
 Pushing such a tag triggers that app's workflow, which builds the APK and attaches it to a GitHub Release.
+
+### Versioning policy
+
+[Semantic Versioning](https://semver.org), applied per app. The bump is decided from what the change *is*, not from how significant it feels:
+
+| Bump | When |
+|------|------|
+| **MAJOR** | Breaks how the app is used, or requires action from existing users (e.g. a signing-key change, which forces an uninstall) |
+| **MINOR** | Adds a user-visible capability, backward compatible |
+| **PATCH** | Bug fixes, wording, styling, performance, refactors — no new capability |
+
+`versionCode` increments by one on every release regardless, since Android requires it to be monotonic.
+
+A release that both fixes bugs and adds a capability takes the highest applicable bump — so a mostly-fixes release that also adds one new feature is a MINOR, not a PATCH.
