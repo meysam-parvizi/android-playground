@@ -6,10 +6,10 @@
     <string name="label_count">تعداد آی‌پی</string>
     <string name="label_sort">مرتب‌سازی</string>
     <string name="label_iran_mode">حالت شبکه‌ی محدود</string>
-    <!-- The Latin word is placed first so the bidi algorithm cannot pull it into
-         the middle of the Persian phrase, which is how this line previously
-         rendered as "دقیق‌تر ولی — WebSocket تست پایداری و کمی کندتر". -->
-    <string name="label_iran_mode_hint">تست پایداری اتصال و WebSocket؛ دقیق‌تر ولی کمی کندتر</string>
+    <!-- The Latin word is wrapped in directional isolates (U+2068 / U+2069) so
+         the bidi algorithm cannot drag it out of position. Without them this line
+         rendered as "؛ دقیق‌تر WebSocket تست پایداری اتصال و". -->
+    <string name="label_iran_mode_hint">تست پایداری اتصال و \u2068WebSocket\u2069؛ دقیق‌تر ولی کمی کندتر</string>
     <string name="label_results">نتایج</string>
     <string name="label_results_count">نتایج (%1$s)</string>
 
@@ -24,13 +24,22 @@
     <string name="status_done">اسکن کامل شد</string>
     <string name="status_done_detail">%1$s آی‌پی بررسی شد · %2$s سالم</string>
     <string name="status_stopped">اسکن متوقف شد</string>
-    <string name="status_error">خطا در اسکن — اتصال اینترنت را بررسی کنید</string>
+    <string name="status_error">خطا در اسکن</string>
     <string name="status_healthy_badge">%1$s سالم</string>
 
+    <!-- Placeholder copy. Each scan phase gets its own wording: suggesting the
+         user retry while a scan is still running would be misleading, since a
+         result may yet arrive. -->
     <string name="empty_title">هنوز نتیجه‌ای نیست</string>
     <string name="empty_hint">دکمه‌ی شروع اسکن را بزنید تا آی‌پی‌های سالم کلادفلر پیدا و رتبه‌بندی شوند.</string>
+    <string name="empty_searching">در حال جستجوی آی‌پی سالم…</string>
+    <string name="empty_searching_hint">اسکن ادامه دارد. نتایج به‌محض پیدا شدن همین‌جا نمایش داده می‌شوند.</string>
     <string name="empty_none_found">آی‌پی سالمی پیدا نشد</string>
     <string name="empty_none_found_hint">دوباره تلاش کنید یا تعداد آی‌پی را بیشتر کنید. رفتار شبکه مدام تغییر می‌کند.</string>
+    <string name="empty_stopped">اسکن پیش از پیدا شدن نتیجه متوقف شد</string>
+    <string name="empty_stopped_hint">برای جستجوی آی‌پی سالم دوباره اسکن را شروع کنید.</string>
+    <string name="empty_error">اسکن انجام نشد</string>
+    <string name="empty_error_hint">اتصال اینترنت را بررسی کنید و دوباره تلاش کنید.</string>
 
     <!-- Values arrive pre-formatted and directionally isolated, so the label sits
          cleanly to the right of the number in an RTL layout. "اتلاف" is the
@@ -38,7 +47,7 @@
     <string name="chip_ping">پینگ %1$s</string>
     <string name="chip_jitter">نوسان %1$s</string>
     <string name="chip_loss">اتلاف %1$s</string>
-    <string name="chip_ws">WebSocket</string>
+    <string name="chip_ws">\u2068WebSocket\u2069</string>
     <string name="score_and_grade">%1$s · %2$s</string>
 
     <string name="toast_copied">%1$s آی‌پی کپی شد</string>
@@ -46,6 +55,6 @@
     <string name="toast_nothing">نتیجه‌ای برای کپی وجود ندارد</string>
 
     <string name="about_title">درباره‌ی CF Scanner</string>
-    <string name="about_body">این اپ رنج‌های رسمی کلادفلر را اسکن می‌کند و آی‌پی‌هایی را که واقعاً قابل استفاده‌اند رتبه‌بندی می‌کند.\n\nهر آی‌پی چند مرحله تست می‌شود: اتصال TCP، هندشیک TLS، تأیید واقعی بودن edge کلادفلر، و مهم‌تر از همه نگه‌داشتن اتصال بی‌کار تا مشخص شود توسط فایروال قطع نمی‌شود.\n\nامتیازدهی پایداری و یکنواختی را مهم‌تر از سرعت خام می‌داند؛ یعنی یک آی‌پی پایدار با پینگ ۲۵۰ بالاتر از یک آی‌پی ناپایدار با پینگ ۳۰ قرار می‌گیرد.\n\nبرای کپی یک آی‌پی، روی همان ردیف بزنید. دکمه‌ی کپی، تمام لیست را به ترتیب رتبه کپی می‌کند.\n\nنتایج یک عکس لحظه‌ای هستند — رفتار شبکه مدام تغییر می‌کند، پس هر وقت آی‌پی‌ها از کار افتادند دوباره اسکن کنید.</string>
+    <string name="about_body">این اپ رنج‌های رسمی کلادفلر را اسکن می‌کند و آی‌پی‌هایی را که واقعاً قابل استفاده‌اند رتبه‌بندی می‌کند.\n\nهر آی‌پی چند مرحله تست می‌شود: اتصال \u2068TCP\u2069، هندشیک \u2068TLS\u2069، تأیید واقعی بودن سرور کلادفلر، و مهم‌تر از همه نگه‌داشتن اتصال بی‌کار تا مشخص شود توسط فایروال قطع نمی‌شود.\n\nامتیازدهی پایداری و یکنواختی را مهم‌تر از سرعت خام می‌داند؛ یعنی یک آی‌پی پایدار با پینگ ۲۵۰ بالاتر از یک آی‌پی ناپایدار با پینگ ۳۰ قرار می‌گیرد.\n\nبرای کپی یک آی‌پی، روی همان ردیف بزنید. دکمه‌ی کپی، تمام لیست را به ترتیب رتبه کپی می‌کند.\n\nنتایج یک عکس لحظه‌ای هستند — رفتار شبکه مدام تغییر می‌کند، پس هر وقت آی‌پی‌ها از کار افتادند دوباره اسکن کنید.</string>
     <string name="about_close">بستن</string>
 </resources>

@@ -20,8 +20,9 @@
         <item name="android:statusBarColor">@color/surface_dark</item>
         <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
 
-        <item name="android:textDirection">locale</item>
-        <item name="android:layoutDirection">locale</item>
+        <item name="android:layoutDirection">rtl</item>
+        <item name="android:textDirection">rtl</item>
+        <item name="android:textAlignment">viewStart</item>
     </style>
 
 </resources>

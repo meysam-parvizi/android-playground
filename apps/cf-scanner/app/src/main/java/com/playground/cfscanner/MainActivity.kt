@@ -4,20 +4,14 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
-import android.view.View
-import android.widget.ArrayAdapter
-import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.appbar.MaterialToolbar
-import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.materialswitch.MaterialSwitch
-import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.snackbar.Snackbar
-import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -26,74 +20,33 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Single-screen UI: choose how many IPs to scan, press scan, watch ranked results
- * appear.
+ * The single screen: controls, placeholder, and ranked results in one list.
  *
- * The scan runs on background dispatchers inside [ScanEngine]; this class only
- * renders. Ranking happens off the main thread because sorting on every hit was
- * enough to make the app unresponsive.
+ * Responsibilities are deliberately narrow — this class owns the scan lifecycle
+ * and the [HeaderState], while the adapters own all rendering and
+ * [EmptyStateRules] owns the placeholder logic. Keeping those apart is what makes
+ * it impossible for the placeholder to contradict the list, which was the source
+ * of the "no healthy IP found" message appearing above real results.
  */
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
 
-    private lateinit var toolbar: MaterialToolbar
-    private lateinit var statusText: TextView
-    private lateinit var subStatusText: TextView
-    private lateinit var healthyBadge: TextView
-    private lateinit var progressBar: LinearProgressIndicator
-    private lateinit var scanButton: MaterialButton
-    private lateinit var copyButton: MaterialButton
-    private lateinit var countInput: MaterialAutoCompleteTextView
-    private lateinit var sortInput: MaterialAutoCompleteTextView
-    private lateinit var iranModeSwitch: MaterialSwitch
-    private lateinit var resultsHeader: TextView
-    private lateinit var emptyState: View
-    private lateinit var emptyTitle: TextView
-    private lateinit var emptyHint: TextView
+    private lateinit var headerAdapter: HeaderAdapter
+    private lateinit var emptyAdapter: EmptyStateAdapter
     private lateinit var resultAdapter: ResultAdapter
 
     private var scanJob: Job? = null
     private var resortJob: Job? = null
+
     private val found = mutableListOf<ScanResult>()
-    private var hasScanned = false
+    private var state = HeaderState()
 
     private val countOptions = listOf(100, 200, 300, 500, 800)
-    private var selectedCountIndex = 2   // default 300
-    private var selectedSortIndex = 0    // default SCORE
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        bindViews()
-        setUpToolbar()
-        setUpDropdowns()
-        setUpList()
-
-        scanButton.setOnClickListener { if (scanJob?.isActive == true) stopScan() else startScan() }
-        copyButton.setOnClickListener { copyResults() }
-
-        renderEmptyState()
-    }
-
-    private fun bindViews() {
-        toolbar = findViewById(R.id.toolbar)
-        statusText = findViewById(R.id.statusText)
-        subStatusText = findViewById(R.id.subStatusText)
-        healthyBadge = findViewById(R.id.healthyBadge)
-        progressBar = findViewById(R.id.progressBar)
-        scanButton = findViewById(R.id.scanButton)
-        copyButton = findViewById(R.id.copyButton)
-        countInput = findViewById(R.id.countInput)
-        sortInput = findViewById(R.id.sortInput)
-        iranModeSwitch = findViewById(R.id.iranModeSwitch)
-        resultsHeader = findViewById(R.id.resultsHeader)
-        emptyState = findViewById(R.id.emptyState)
-        emptyTitle = emptyState.findViewById(R.id.emptyTitle)
-        emptyHint = emptyState.findViewById(R.id.emptyHint)
-    }
-
-    private fun setUpToolbar() {
-        toolbar.setOnMenuItemClickListener { item ->
+        findViewById<MaterialToolbar>(R.id.toolbar).setOnMenuItemClickListener { item ->
             if (item.itemId == R.id.action_about) {
                 showAbout()
                 true
@@ -101,100 +54,87 @@ class MainActivity : AppCompatActivity() {
                 false
             }
         }
-    }
 
-    private fun setUpDropdowns() {
-        // Bare Persian numerals: "۳۰۰ آی‌پی" reordered badly in the RTL field, and
-        // the hint label already says what the number counts.
-        val counts = countOptions.map { Format.number(it) }
-        countInput.setAdapter(
-            ArrayAdapter(this, android.R.layout.simple_list_item_1, counts),
+        headerAdapter = HeaderAdapter(
+            countOptions = countOptions,
+            sortLabels = SortBy.entries.map { it.label },
+            callbacks = this,
         )
-        countInput.setText(counts[selectedCountIndex], false)
-        countInput.setOnItemClickListener { _, _, position, _ -> selectedCountIndex = position }
+        emptyAdapter = EmptyStateAdapter()
+        resultAdapter = ResultAdapter(onRowClick = ::copySingle)
 
-        val sorts = SortBy.entries.map { it.label }
-        sortInput.setAdapter(
-            ArrayAdapter(this, android.R.layout.simple_list_item_1, sorts),
-        )
-        sortInput.setText(sorts[selectedSortIndex], false)
-        sortInput.setOnItemClickListener { _, _, position, _ ->
-            selectedSortIndex = position
-            // User-driven, so re-rank at once rather than after the debounce.
-            resort(immediate = true)
-        }
-    }
-
-    private fun setUpList() {
-        resultAdapter = ResultAdapter(onRowClick = { copySingle(it) })
-        findViewById<RecyclerView>(R.id.resultList).apply {
+        findViewById<RecyclerView>(R.id.contentList).apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
-            adapter = resultAdapter
-            // The list lives inside a NestedScrollView. Left at wrap_content it
-            // would lay out every row at full height and recycle nothing, which
-            // is what made scrolling stutter during a scan. Fixing the height and
-            // letting it scroll itself restores recycling.
-            isNestedScrollingEnabled = false
-            setHasFixedSize(false)
-            // Rows are uniform, so keeping a few extra off-screen holders avoids
-            // re-inflating them as results stream in.
-            setItemViewCacheSize(12)
-            // Ranks shift constantly while scanning; animating every move is
-            // both distracting and needless main-thread work.
+            // Header, placeholder, and results as one scrolling list, so rows are
+            // genuinely recycled instead of all being held in memory.
+            adapter = ConcatAdapter(headerAdapter, emptyAdapter, resultAdapter)
+            // Ranks shift constantly during a scan; animating every move is both
+            // distracting and needless main-thread work.
             itemAnimator = null
+            setItemViewCacheSize(12)
         }
+
+        render()
     }
 
-    private fun currentSort(): SortBy =
-        SortBy.entries.getOrElse(selectedSortIndex) { SortBy.SCORE }
+    // region rendering
 
-    /**
-     * Re-ranks and redraws the visible list, coalescing bursts of results.
-     *
-     * Sorting runs on [Dispatchers.Default] because doing it inline on every hit
-     * stalled the main thread. On top of that, hits arrive in bursts, so a short
-     * debounce collapses them into one sort plus one diff — re-ranking per hit is
-     * what made the list stutter while scrolling.
-     *
-     * @param immediate skip the debounce, for user-driven changes like switching
-     *   the sort criterion where any delay feels like lag.
-     */
-    private fun resort(immediate: Boolean = false) {
-        if (found.isEmpty()) {
-            renderEmptyState()
-            renderResultsHeader()
+    /** Pushes the current state into the adapters. */
+    private fun render() {
+        headerAdapter.update(state)
+        emptyAdapter.show(EmptyStateRules.contentFor(state.phase, state.resultCount))
+    }
+
+    private fun setState(transform: (HeaderState) -> HeaderState) {
+        state = transform(state)
+        render()
+    }
+
+    // endregion
+
+    // region header callbacks
+
+    override fun onScanToggle() {
+        if (state.isScanning) stopScan() else startScan()
+    }
+
+    override fun onCopy() {
+        val items = resultAdapter.currentItems()
+        if (items.isEmpty()) {
+            snack(getString(R.string.toast_nothing))
             return
         }
-        val criterion = currentSort()
-
-        resortJob?.cancel()
-        resortJob = lifecycleScope.launch {
-            if (!immediate) delay(RESORT_DEBOUNCE_MS)
-            val snapshot = found.toList()
-            val ranked = withContext(Dispatchers.Default) { Ranking.sort(snapshot, criterion) }
-            resultAdapter.submit(ranked)
-            renderEmptyState()
-            renderResultsHeader()
-        }
+        copyToClipboard(resultAdapter.exportText())
+        snack(getString(R.string.toast_copied, Format.number(items.size)))
     }
+
+    override fun onCountSelected(index: Int) = setState { it.copy(countIndex = index) }
+
+    override fun onSortSelected(index: Int) {
+        setState { it.copy(sortIndex = index) }
+        // User-driven, so re-rank at once rather than after the debounce.
+        resort(immediate = true)
+    }
+
+    override fun onIranModeChanged(enabled: Boolean) = setState { it.copy(iranMode = enabled) }
+
+    // endregion
+
+    // region scanning
+
+    private fun currentSort(): SortBy =
+        SortBy.entries.getOrElse(state.sortIndex) { SortBy.SCORE }
 
     private fun startScan() {
         found.clear()
-        resultAdapter.clear()
-        hasScanned = true
-        copyButton.isEnabled = false
-        progressBar.progress = 0
-        healthyBadge.visibility = View.GONE
-        subStatusText.visibility = View.GONE
-        scanButton.setText(R.string.action_stop)
-        scanButton.setIconResource(R.drawable.ic_stop)
-        setControlsEnabled(false)
-        renderEmptyState()
-        renderResultsHeader()
+        resultAdapter.submit(emptyList())
 
-        val count = countOptions.getOrElse(selectedCountIndex) { 300 }
-        val iranMode = iranModeSwitch.isChecked
+        val count = countOptions.getOrElse(state.countIndex) { 300 }
+        setState {
+            it.copy(phase = ScanPhase.SCANNING, probed = 0, total = count, healthy = 0, resultCount = 0)
+        }
 
+        val iranMode = state.iranMode
         val config = ScanConfig(
             targetCount = count,
             preferIranFriendlyRanges = iranMode,
@@ -204,116 +144,73 @@ class MainActivity : AppCompatActivity() {
             testWebSocket = iranMode,
         )
 
-        statusText.setText(R.string.status_scanning)
-
         scanJob = lifecycleScope.launch {
             try {
                 val all = ScanEngine(config).scan(
-                    onProgress = { p -> renderProgress(p) },
+                    onProgress = { p ->
+                        setState {
+                            it.copy(probed = p.probed, total = p.total, healthy = p.healthy)
+                        }
+                    },
                     onResult = { r ->
                         found.add(r)
-                        copyButton.isEnabled = true
-                        // Hide the empty block the instant a result exists, so the
-                        // screen never claims nothing was found while listing hits.
-                        emptyState.visibility = View.GONE
+                        setState { it.copy(resultCount = found.size) }
                         resort() // debounced; sorting happens off the main thread
                     },
                 )
-                val healthy = Ranking.healthy(all)
                 // Flush any debounced re-rank so the final list is complete.
                 resort(immediate = true)
-                statusText.setText(R.string.status_done)
-                subStatusText.text = getString(
-                    R.string.status_done_detail,
-                    Format.number(all.size),
-                    Format.number(healthy.size),
-                )
-                subStatusText.visibility = View.VISIBLE
-                progressBar.progress = 100
+                setState {
+                    it.copy(
+                        phase = ScanPhase.FINISHED,
+                        probed = all.size,
+                        total = all.size.coerceAtLeast(1),
+                        healthy = Ranking.healthy(all).size,
+                        resultCount = found.size,
+                    )
+                }
             } catch (_: CancellationException) {
-                statusText.setText(R.string.status_stopped)
+                setState { it.copy(phase = ScanPhase.STOPPED) }
             } catch (_: Exception) {
-                statusText.setText(R.string.status_error)
-            } finally {
-                scanButton.setText(R.string.action_scan)
-                scanButton.setIconResource(R.drawable.ic_radar)
-                setControlsEnabled(true)
-                renderEmptyState()
+                setState { it.copy(phase = ScanPhase.ERROR) }
             }
         }
-    }
-
-    private fun renderProgress(p: ScanProgress) {
-        progressBar.progress =
-            if (p.total > 0) ((p.probed * 100) / p.total).coerceIn(0, 100) else 0
-        subStatusText.text = getString(
-            R.string.status_progress,
-            Format.number(p.probed),
-            Format.number(p.total),
-        )
-        subStatusText.visibility = View.VISIBLE
-        if (p.healthy > 0) {
-            healthyBadge.text = getString(R.string.status_healthy_badge, Format.number(p.healthy))
-            healthyBadge.visibility = View.VISIBLE
-        }
-    }
-
-    private fun renderResultsHeader() {
-        resultsHeader.text = if (found.isEmpty()) {
-            getString(R.string.label_results)
-        } else {
-            getString(R.string.label_results_count, Format.number(found.size))
-        }
-    }
-
-    /**
-     * Shows the right empty message, or hides the block once there are rows.
-     *
-     * The "found nothing" wording is only ever shown after a scan has actually
-     * finished. While a scan is running the block is hidden the moment the first
-     * result lands, and before that it shows the neutral prompt — otherwise the
-     * screen claimed no IPs were found while listing several of them.
-     */
-    private fun renderEmptyState() {
-        if (found.isNotEmpty()) {
-            emptyState.visibility = View.GONE
-            return
-        }
-        emptyState.visibility = View.VISIBLE
-        val scanning = scanJob?.isActive == true
-        if (hasScanned && !scanning) {
-            emptyTitle.setText(R.string.empty_none_found)
-            emptyHint.setText(R.string.empty_none_found_hint)
-        } else {
-            emptyTitle.setText(R.string.empty_title)
-            emptyHint.setText(R.string.empty_hint)
-        }
-    }
-
-    private fun setControlsEnabled(enabled: Boolean) {
-        countInput.isEnabled = enabled
-        iranModeSwitch.isEnabled = enabled
     }
 
     private fun stopScan() {
         scanJob?.cancel()
         scanJob = null
-        scanButton.setText(R.string.action_scan)
-        scanButton.setIconResource(R.drawable.ic_radar)
-        statusText.setText(R.string.status_stopped)
-        setControlsEnabled(true)
-        renderEmptyState()
+        setState { it.copy(phase = ScanPhase.STOPPED) }
     }
 
-    private fun copyResults() {
-        val items = resultAdapter.currentItems()
-        if (items.isEmpty()) {
-            snack(getString(R.string.toast_nothing))
+    /**
+     * Re-ranks and redraws the results, coalescing bursts.
+     *
+     * Sorting runs on [Dispatchers.Default]; doing it inline on every hit stalled
+     * the main thread. Hits also arrive in bursts, so a short debounce collapses
+     * them into one sort plus one diff.
+     *
+     * @param immediate skip the debounce for user-driven changes, where any delay
+     *   reads as lag.
+     */
+    private fun resort(immediate: Boolean = false) {
+        resortJob?.cancel()
+        if (found.isEmpty()) {
+            resultAdapter.submit(emptyList())
             return
         }
-        copyToClipboard(resultAdapter.exportText())
-        snack(getString(R.string.toast_copied, Format.number(items.size)))
+        val criterion = currentSort()
+        resortJob = lifecycleScope.launch {
+            if (!immediate) delay(RESORT_DEBOUNCE_MS)
+            val snapshot = found.toList()
+            val ranked = withContext(Dispatchers.Default) { Ranking.sort(snapshot, criterion) }
+            resultAdapter.submit(ranked)
+        }
     }
+
+    // endregion
+
+    // region clipboard and dialogs
 
     /** Tapping one row copies just that address — handy for a quick single test. */
     private fun copySingle(r: ScanResult) {
@@ -337,6 +234,8 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton(R.string.about_close, null)
             .show()
     }
+
+    // endregion
 
     override fun onDestroy() {
         scanJob?.cancel()

@@ -78,17 +78,41 @@ Controls that would corrupt an in-flight run are disabled while scanning; sort s
 
 ### Persian numerals and bidi
 
+The layout direction is **forced to RTL** rather than inherited from the device locale. Leaving it as `locale` kept the layout left-to-right on an English-locale device, which made the mixed Persian/Latin lines read as though only the words had been translated.
+
 All measurements render in Persian digits (`۸۵`, `۲۳ms`, `۰٪`), but **IP addresses deliberately keep Latin digits** — they get copied into client configs, where Persian numerals would be useless.
 
-Values embedded in Persian labels are wrapped in Unicode directional isolates. Without that the bidirectional algorithm reorders them: "loss 0%" rendered on-device as the garbled `0%لاس`. `FormatTest` pins both rules, including that an address never contains a Persian digit.
+Latin words and numeric values embedded in Persian sentences are wrapped in Unicode directional isolates (`U+2068` / `U+2069`). Without them the bidirectional algorithm reorders the run: "loss 0%" rendered as `0%لاس`, and the settings hint scrambled around the word `WebSocket`. `FormatTest` pins both rules, including that an address never contains a Persian digit.
 
 ### Keeping the list smooth
 
-Results stream in continuously, which makes naive list updates expensive enough to stutter scrolling. Three things prevent that:
+The whole screen is **one `RecyclerView`**: the controls, the placeholder, and the results are separate adapters joined with `ConcatAdapter`.
+
+This matters for performance, not tidiness. The earlier version wrapped a `wrap_content` `RecyclerView` in a `NestedScrollView`, which measures the list unbounded — so it laid out every row at full height and **recycled nothing**. With a few hundred results, every update touched every row. Making the header a list row instead lets recycling work normally.
+
+On top of that:
 
 - Re-ranking is **debounced** (250 ms), collapsing a burst of hits into one sort plus one diff. Changing the sort criterion bypasses the debounce, since a delay there reads as lag.
-- Updates go through **`DiffUtil`**, so only rows that actually moved or changed are rebound instead of the whole list.
+- Updates go through **`DiffUtil`**, so only rows that actually moved or changed are rebound.
 - Item animations are off and a small view cache is kept — ranks shift constantly during a scan, so animating every move is pure overhead.
+
+### Structure
+
+Rendering is separated from behaviour so the UI cannot contradict itself:
+
+| Type | Responsibility |
+|------|----------------|
+| `MainActivity` | Owns the scan lifecycle and `HeaderState`; contains no rendering |
+| `HeaderAdapter` | Renders the controls block, reports intent via a `Callbacks` interface |
+| `EmptyStateAdapter` | Renders the placeholder row |
+| `ResultAdapter` | Renders result rows, diffing on change |
+| `ScanPhase` / `EmptyStateRules` | Pure, unit-tested rules for which placeholder to show |
+
+`EmptyStateRules` is the single source of truth for the placeholder. That is what fixes the bug where "no healthy IP found" appeared above real results: with results present it returns no placeholder at all, in every phase, and "try again" is reachable only once a scan has actually finished empty — while a scan is running it says it is still searching.
+
+### Responsive layout
+
+`layout/item_header.xml` stacks the two dropdowns; `layout-w480dp/item_header.xml` places them side by side so the controls stay compact and more of the list is visible on wider screens and in landscape. Both variants define the same view IDs, so the adapter is unaware of which one is inflated. All paddings and margins use `start`/`end` rather than `left`/`right`, so the UI mirrors correctly.
 
 ## Threading
 
@@ -120,7 +144,7 @@ Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner
 - Every push/PR touching `apps/cf-scanner/**` runs the unit tests, builds the APK, and uploads it as an artifact
 - Pushing a tag `cf-scanner-v<version>` publishes the APK as a GitHub Release asset
 
-Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.0.5**.
+Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.0.6**.
 
 ## Details
 
