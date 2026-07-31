@@ -147,6 +147,23 @@ Self-contained Gradle project. From this directory:
 ./gradlew :app:testDebugUnitTest # ranking + CIDR logic tests
 ```
 
+## Signing
+
+Every release is signed with a **stable key**, so a new version installs straight over the previous one.
+
+This is not cosmetic. Android refuses to install an APK over one signed with a different key, failing with `App not installed as package conflicts with an existing package`. Debug builds are signed with a keystore Gradle generates on demand, and each CI run starts on a fresh machine — so every build used to get a brand-new key and every update had to be uninstalled first.
+
+The key is resolved in this order:
+
+1. **`CFS_KEYSTORE_BASE64`** environment variable (plus `CFS_KEYSTORE_PASSWORD`, `CFS_KEY_ALIAS`, `CFS_KEY_PASSWORD`), decoded into the build directory. This is how CI signs when the keystore is held in repository secrets — the key never enters the repository.
+2. **`keystore/cf-scanner-release.jks`**, checked in, so a plain `git clone` produces installable, consistently signed builds with no setup.
+
+The checked-in keystore is deliberately not a secret: it keeps the signature stable for a sample app, it does not prove authorship. Anything published to a store should use option 1.
+
+`./gradlew :app:verifySigningConfigured` runs in CI ahead of the build and fails loudly if neither source is present, rather than silently shipping an APK that cannot be updated.
+
+> **Note:** versions up to 0.0.8 were each signed with a different throwaway key. Upgrading from one of those to 0.0.9 still requires uninstalling first — one last time. From 0.0.9 onward, updates install cleanly.
+
 ## CI / Releases
 
 Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner.yml):
@@ -154,7 +171,7 @@ Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner
 - Every push/PR touching `apps/cf-scanner/**` runs the unit tests, builds the APK, and uploads it as an artifact
 - Pushing a tag `cf-scanner-v<version>` publishes the APK as a GitHub Release asset
 
-Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.0.8**.
+Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.0.9**.
 
 ## Details
 

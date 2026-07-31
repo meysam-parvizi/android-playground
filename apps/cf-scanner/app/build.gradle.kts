@@ -3,6 +3,49 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+/**
+ * Resolves the signing keystore and its credentials.
+ *
+ * Android refuses to install an APK over one signed with a different key, so a
+ * stable signature is what makes updates installable without uninstalling first.
+ * Debug builds are signed with a keystore Gradle generates on demand — and CI
+ * runs on a fresh machine every time, so every build used to get a brand-new
+ * key and every release conflicted with the last.
+ *
+ * Two sources are supported, checked in this order:
+ *
+ *  1. **Environment variables** (`CFS_KEYSTORE_BASE64` and friends), used by CI
+ *     when the keystore is held in repository secrets. Preferred, because the key
+ *     never appears in the repository.
+ *  2. **The checked-in keystore** at `keystore/cf-scanner-release.jks`, so a
+ *     plain `git clone` produces installable, consistently signed builds with no
+ *     setup.
+ *
+ * The checked-in key is deliberately not a secret: it exists to keep the
+ * signature stable for a sample app, not to prove authorship. Anything published
+ * to a store should use option 1.
+ */
+val keystoreFromEnv: File? = System.getenv("CFS_KEYSTORE_BASE64")
+    ?.takeIf { it.isNotBlank() }
+    ?.let { encoded ->
+        // Materialise the secret into the build directory, never the source tree.
+        val out = File(layout.buildDirectory.get().asFile, "signing/from-secret.jks")
+        out.parentFile.mkdirs()
+        out.writeBytes(java.util.Base64.getDecoder().decode(encoded.trim()))
+        out
+    }
+
+val checkedInKeystore: File = rootProject.file("keystore/cf-scanner-release.jks")
+
+val signingKeystore: File? = keystoreFromEnv ?: checkedInKeystore.takeIf { it.exists() }
+
+val signingStorePassword: String =
+    System.getenv("CFS_KEYSTORE_PASSWORD") ?: "cfscanner"
+val signingKeyAlias: String =
+    System.getenv("CFS_KEY_ALIAS") ?: "cf-scanner"
+val signingKeyPassword: String =
+    System.getenv("CFS_KEY_PASSWORD") ?: "cfscanner"
+
 android {
     namespace = "com.playground.cfscanner"
     compileSdk = 34
@@ -11,13 +54,37 @@ android {
         applicationId = "com.playground.cfscanner"
         minSdk = 24
         targetSdk = 34
-        versionCode = 8
-        versionName = "0.0.8"
+        versionCode = 9
+        versionName = "0.0.9"
+    }
+
+    signingConfigs {
+        create("stable") {
+            signingKeystore?.let { ks ->
+                storeFile = ks
+                storePassword = signingStorePassword
+                keyAlias = signingKeyAlias
+                keyPassword = signingKeyPassword
+                // Enable v1 alongside v2/v3 so older devices verify it too.
+                enableV1Signing = true
+                enableV2Signing = true
+            }
+        }
     }
 
     buildTypes {
+        // Debug is what CI publishes, so it must use the stable key rather than
+        // the per-machine keystore Gradle would otherwise create.
+        getByName("debug") {
+            if (signingKeystore != null) {
+                signingConfig = signingConfigs.getByName("stable")
+            }
+        }
         release {
             isMinifyEnabled = false
+            if (signingKeystore != null) {
+                signingConfig = signingConfigs.getByName("stable")
+            }
         }
     }
 
@@ -46,4 +113,19 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+}
+
+/** Fails loudly rather than silently shipping an unstably-signed APK. */
+tasks.register("verifySigningConfigured") {
+    doLast {
+        if (signingKeystore == null) {
+            throw GradleException(
+                "No signing keystore found. Expected ${checkedInKeystore.path} " +
+                    "or the CFS_KEYSTORE_BASE64 environment variable. Without one, " +
+                    "each build gets a different key and updates cannot be installed " +
+                    "over previous versions.",
+            )
+        }
+        logger.lifecycle("Signing with: ${signingKeystore.path}")
+    }
 }

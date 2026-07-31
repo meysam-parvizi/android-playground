@@ -43,6 +43,11 @@ jobs:
       - name: Grant execute permission to gradlew
         run: chmod +x ./gradlew
 
+      # Fails the build rather than silently producing an APK signed with a
+      # throwaway key, which could not be installed over a previous release.
+      - name: Verify signing is configured
+        run: ./gradlew :app:verifySigningConfigured --no-daemon
+
       - name: Run unit tests (ranking and CIDR logic)
         run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
 
