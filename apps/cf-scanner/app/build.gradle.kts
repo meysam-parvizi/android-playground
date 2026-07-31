@@ -58,8 +58,8 @@ android {
         applicationId = "com.playground.cfscanner"
         minSdk = 24
         targetSdk = 34
-        versionCode = 9
-        versionName = "0.0.9"
+        versionCode = 10
+        versionName = "0.1.0"
     }
 
     signingConfigs {
@@ -130,6 +130,8 @@ tasks.register("verifySigningConfigured") {
                     "over previous versions.",
             )
         }
+        val source = if (keystoreFromEnv != null) "environment secret" else "checked-in keystore"
+        logger.lifecycle("Signing source: $source")
         logger.lifecycle("Signing with: ${signingKeystore.path}")
     }
 }

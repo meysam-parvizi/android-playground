@@ -155,14 +155,36 @@ This is not cosmetic. Android refuses to install an APK over one signed with a d
 
 The key is resolved in this order:
 
-1. **`CFS_KEYSTORE_BASE64`** environment variable (plus `CFS_KEYSTORE_PASSWORD`, `CFS_KEY_ALIAS`, `CFS_KEY_PASSWORD`), decoded into the build directory. This is how CI signs when the keystore is held in repository secrets — the key never enters the repository.
-2. **`keystore/cf-scanner-release.jks`**, checked in, so a plain `git clone` produces installable, consistently signed builds with no setup.
+1. **Repository secrets** — `CFS_KEYSTORE_BASE64` (the keystore, base64-encoded) plus `CFS_KEYSTORE_PASSWORD`, `CFS_KEY_ALIAS`, and `CFS_KEY_PASSWORD`. CI passes these as environment variables and the build decodes the keystore into the build directory, never the source tree. This is the path CI uses.
+2. **`keystore/cf-scanner-release.jks`** — checked in, used when no secret is present, so forks and plain clones still produce installable, consistently signed builds with no setup.
 
-The checked-in keystore is deliberately not a secret: it keeps the signature stable for a sample app, it does not prove authorship. Anything published to a store should use option 1.
+Both currently hold the *same* key, so the signature is identical either way and the fallback cannot break update installs. `./gradlew :app:verifySigningConfigured` runs in CI ahead of the build, logs which source was used, and fails loudly if neither is present.
 
-`./gradlew :app:verifySigningConfigured` runs in CI ahead of the build and fails loudly if neither source is present, rather than silently shipping an APK that cannot be updated.
+> **Note:** versions up to 0.0.8 were each signed with a different throwaway key. Upgrading from one of those requires uninstalling first — one last time. From 0.0.9 onward, updates install cleanly.
 
-> **Note:** versions up to 0.0.8 were each signed with a different throwaway key. Upgrading from one of those to 0.0.9 still requires uninstalling first — one last time. From 0.0.9 onward, updates install cleanly.
+### Rotating or replacing the key
+
+To move to a key that is *only* in secrets, generate one and upload it:
+
+```bash
+keytool -genkeypair \
+  -keystore my-release.jks -storetype PKCS12 \
+  -storepass '<store-pass>' -keypass '<key-pass>' \
+  -alias my-alias -keyalg RSA -keysize 2048 -validity 10950 \
+  -dname "CN=CF Scanner, O=<you>, C=<cc>"
+
+# Upload (requires the gh CLI, authenticated with repo scope)
+base64 -w0 my-release.jks | gh secret set CFS_KEYSTORE_BASE64 --repo <owner>/<repo>
+printf '<store-pass>' | gh secret set CFS_KEYSTORE_PASSWORD --repo <owner>/<repo>
+printf 'my-alias'     | gh secret set CFS_KEY_ALIAS         --repo <owner>/<repo>
+printf '<key-pass>'   | gh secret set CFS_KEY_PASSWORD      --repo <owner>/<repo>
+```
+
+Or through the web UI: **repository → Settings → Secrets and variables → Actions → New repository secret**, once per name above. For `CFS_KEYSTORE_BASE64`, paste the output of `base64 -w0 my-release.jks` as a single line.
+
+Then delete `keystore/cf-scanner-release.jks` so the fallback cannot silently mask a misconfigured secret.
+
+**Changing the key changes the signature**, so every existing install will need to be removed once more. Keep a backup of whichever keystore you settle on: lose it and you can never ship an update to installed copies.
 
 ## CI / Releases
 
@@ -171,7 +193,7 @@ Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner
 - Every push/PR touching `apps/cf-scanner/**` runs the unit tests, builds the APK, and uploads it as an artifact
 - Pushing a tag `cf-scanner-v<version>` publishes the APK as a GitHub Release asset
 
-Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.0.9**.
+Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.1.0**.
 
 ## Details
 

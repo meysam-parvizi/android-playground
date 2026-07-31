@@ -45,8 +45,17 @@ jobs:
 
       # Fails the build rather than silently producing an APK signed with a
       # throwaway key, which could not be installed over a previous release.
+      #
+      # The keystore comes from repository secrets when they are configured, and
+      # falls back to the checked-in one otherwise, so forks and local clones
+      # still build. Both paths yield a stable signature.
       - name: Verify signing is configured
         run: ./gradlew :app:verifySigningConfigured --no-daemon
+        env:
+          CFS_KEYSTORE_BASE64: ${{ secrets.CFS_KEYSTORE_BASE64 }}
+          CFS_KEYSTORE_PASSWORD: ${{ secrets.CFS_KEYSTORE_PASSWORD }}
+          CFS_KEY_ALIAS: ${{ secrets.CFS_KEY_ALIAS }}
+          CFS_KEY_PASSWORD: ${{ secrets.CFS_KEY_PASSWORD }}
 
       - name: Run unit tests (ranking and CIDR logic)
         run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
@@ -61,6 +70,11 @@ jobs:
 
       - name: Build debug APK
         run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+        env:
+          CFS_KEYSTORE_BASE64: ${{ secrets.CFS_KEYSTORE_BASE64 }}
+          CFS_KEYSTORE_PASSWORD: ${{ secrets.CFS_KEYSTORE_PASSWORD }}
+          CFS_KEY_ALIAS: ${{ secrets.CFS_KEY_ALIAS }}
+          CFS_KEY_PASSWORD: ${{ secrets.CFS_KEY_PASSWORD }}
 
       - name: Rename APK with version
         id: apk
