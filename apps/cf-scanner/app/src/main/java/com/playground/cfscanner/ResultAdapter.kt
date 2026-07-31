@@ -91,7 +91,7 @@ class ResultAdapter(
             if (r.loss() > 0) ctx.getColor(R.color.grade_weak) else holder.defaultChipTextColor,
         )
 
-        holder.chipColo.text = r.colo
+        holder.chipColo.text = ctx.getString(R.string.chip_colo, r.colo)
         holder.chipColo.visibility = if (r.colo.isEmpty()) View.GONE else View.VISIBLE
 
         // Throughput, only when a transfer was actually measured.

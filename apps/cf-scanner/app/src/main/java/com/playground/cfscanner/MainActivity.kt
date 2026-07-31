@@ -160,7 +160,9 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
         found.clear()
         resultAdapter.submit(emptyList())
 
-        val count = countOptions.getOrElse(state.countIndex) { 300 }
+        // Falls back to the first option so the fallback cannot silently disagree
+        // with the default shown in the UI.
+        val count = countOptions.getOrElse(state.countIndex) { countOptions.first() }
         setState {
             it.copy(
                 phase = ScanPhase.SCANNING,

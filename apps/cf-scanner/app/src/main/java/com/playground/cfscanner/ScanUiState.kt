@@ -77,7 +77,14 @@ data class HeaderState(
     val total: Int = 0,
     val healthy: Int = 0,
     val resultCount: Int = 0,
-    val countIndex: Int = 2,
+    /**
+     * Index into the scan-size options.
+     *
+     * Defaults to the first, smallest option: a first scan should finish quickly
+     * enough to show the app works, and a smaller run is usually enough to find
+     * usable addresses. Larger counts are one tap away.
+     */
+    val countIndex: Int = 0,
     val sortIndex: Int = 0,
     val iranMode: Boolean = true,
     /**

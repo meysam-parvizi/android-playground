@@ -138,6 +138,17 @@ class HeaderStateTest {
     }
 
     /**
+     * The scan size defaults to the smallest option.
+     *
+     * A first run should finish quickly enough to show the app works; a larger
+     * count is one tap away. Pinned here so the default cannot drift back.
+     */
+    @Test
+    fun scanSizeDefaultsToTheFirstOption() {
+        assertEquals("default should be the first (smallest) option", 0, HeaderState().countIndex)
+    }
+
+    /**
      * The reported numbers must add up, in both directions.
      *
      * A user asked for 100 addresses and the summary read "125 tested, 61
