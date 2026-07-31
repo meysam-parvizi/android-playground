@@ -60,10 +60,13 @@ class FormatTest {
     }
 
     @Test
-    fun millisUsesPersianDigitsAndKeepsTheLatinUnit() {
-        val visible = stripIsolates(Format.millis(23))
-        assertEquals("۲۳ms", visible)
-        assertTrue("the ms unit stays Latin", visible.endsWith("ms"))
+    fun millisIsABarePersianNumeralWithNoUnit() {
+        // The "ms" suffix was dropped: a Latin unit beside Persian digits reads
+        // badly in an RTL row, and the chip label already says it is a duration.
+        assertEquals("۲۳", stripIsolates(Format.millis(23)))
+        assertEquals("۰", stripIsolates(Format.millis(0)))
+        assertEquals("۱۲۵۰", stripIsolates(Format.millis(1250)))
+        assertFalse("no unit should be appended", stripIsolates(Format.millis(23)).contains("ms"))
     }
 
     @Test
@@ -93,8 +96,8 @@ class FormatTest {
     }
 
     @Test
-    fun formattedMetricsCarryNoAsciiDigits() {
-        // Everything except the address should read in Persian.
+    fun formattedMetricsCarryNoAsciiDigitsOrLatinUnits() {
+        // Everything except the address should read as pure Persian.
         val metrics = listOf(
             stripIsolates(Format.millis(250)),
             stripIsolates(Format.percent(12)),
@@ -102,6 +105,7 @@ class FormatTest {
         )
         for (m in metrics) {
             assertTrue("'$m' still contains ASCII digits", m.none { it in '0'..'9' })
+            assertTrue("'$m' should carry no Latin letters", m.none { it in 'a'..'z' || it in 'A'..'Z' })
         }
     }
 }

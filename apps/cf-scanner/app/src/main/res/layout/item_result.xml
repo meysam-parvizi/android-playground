@@ -20,14 +20,22 @@
         android:baselineAligned="false"
         android:gravity="center_vertical">
 
-        <!-- Rank badge, tinted by grade so quality reads at a glance. -->
+        <!--
+          Rank badge, tinted by grade so quality reads at a glance.
+
+          gravity alone is not enough: the theme sets textAlignment=viewStart,
+          which in an RTL layout pushes the digit toward the right edge of the
+          circle. Both are pinned to centre here.
+        -->
         <TextView
             android:id="@+id/rowRank"
             android:layout_width="34dp"
             android:layout_height="34dp"
-            android:gravity="center"
             android:background="@drawable/bg_rank"
-            android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
+            android:gravity="center"
+            android:textAlignment="center"
+            android:includeFontPadding="false"
+            android:textAppearance="@style/TextAppearance.CfScanner.LabelLarge"
             android:textStyle="bold" />
 
         <LinearLayout
@@ -60,7 +68,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
-                    android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
+                    android:textAppearance="@style/TextAppearance.CfScanner.LabelLarge"
                     android:textStyle="bold" />
             </LinearLayout>
 

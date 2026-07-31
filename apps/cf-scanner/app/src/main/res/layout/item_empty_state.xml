@@ -25,7 +25,7 @@
         android:gravity="center"
         android:textAlignment="center"
         android:text="@string/empty_title"
-        android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+        android:textAppearance="@style/TextAppearance.CfScanner.BodyMedium"
         android:textColor="?attr/colorOnSurfaceVariant"
         tools:text="هنوز نتیجه‌ای نیست" />
 
@@ -38,7 +38,7 @@
         android:gravity="center"
         android:textAlignment="center"
         android:text="@string/empty_hint"
-        android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+        android:textAppearance="@style/TextAppearance.CfScanner.BodySmall"
         android:textColor="?attr/colorOnSurfaceVariant" />
 
 </LinearLayout>

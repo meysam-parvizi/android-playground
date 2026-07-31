@@ -44,7 +44,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/status_idle"
-                        android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+                        android:textAppearance="@style/TextAppearance.CfScanner.BodyMedium"
                         android:textColor="?attr/colorOnSurface" />
 
                     <TextView
@@ -52,7 +52,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+                        android:textAppearance="@style/TextAppearance.CfScanner.BodySmall"
                         android:textColor="?attr/colorOnSurfaceVariant"
                         android:visibility="gone"
                         tools:text="بررسی ۶۸ از ۳۰۰"
@@ -67,7 +67,7 @@
                     android:background="@drawable/bg_badge"
                     android:paddingHorizontal="10dp"
                     android:paddingVertical="4dp"
-                    android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
+                    android:textAppearance="@style/TextAppearance.CfScanner.LabelLarge"
                     android:textColor="@color/grade_excellent"
                     android:visibility="gone"
                     tools:text="۴۳ سالم"
@@ -170,7 +170,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/label_iran_mode"
-                        android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+                        android:textAppearance="@style/TextAppearance.CfScanner.BodyMedium"
                         android:textColor="?attr/colorOnSurface" />
 
                     <TextView
@@ -178,7 +178,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="1dp"
                         android:text="@string/label_iran_mode_hint"
-                        android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+                        android:textAppearance="@style/TextAppearance.CfScanner.BodySmall"
                         android:textColor="?attr/colorOnSurfaceVariant" />
                 </LinearLayout>
 
@@ -199,7 +199,7 @@
         android:layout_height="56dp"
         android:layout_marginTop="14dp"
         android:text="@string/action_scan"
-        android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+        android:textAppearance="@style/TextAppearance.CfScanner.TitleMedium"
         app:cornerRadius="16dp"
         app:icon="@drawable/ic_radar"
         app:iconGravity="textStart" />
@@ -223,7 +223,7 @@
             android:layout_weight="1"
             android:layout_height="wrap_content"
             android:text="@string/label_results"
-            android:textAppearance="@style/TextAppearance.Material3.TitleSmall"
+            android:textAppearance="@style/TextAppearance.CfScanner.TitleSmall"
             android:textColor="?attr/colorOnSurface" />
 
         <com.google.android.material.button.MaterialButton

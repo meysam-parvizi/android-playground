@@ -76,11 +76,21 @@ Material 3, with light and dark themes and full RTL layout. One screen, everythi
 
 Controls that would corrupt an in-flight run are disabled while scanning; sort stays live so results can be re-ranked as they arrive.
 
+### Typography
+
+The UI uses **[Vazirmatn](https://github.com/rastikerdar/vazirmatn) v33.003**, the standard free font for Persian interfaces. Three weights (regular/medium/bold) are bundled, ~370 KB total.
+
+It is applied by overriding the Material 3 type scale in the theme rather than setting `fontFamily` per view, so every component picks it up — including ones the app never touches directly, such as dialogs, dropdown menus, and snackbars. The dark theme inherits a shared `Theme.CfScanner.Base`, so the font and type scale are declared once.
+
+IP addresses stay **monospace**: aligned digits make a column of addresses much easier to compare, and the address is Latin-only so no Persian glyphs are involved.
+
 ### Persian numerals and bidi
 
 The layout direction is **forced to RTL** rather than inherited from the device locale. Leaving it as `locale` kept the layout left-to-right on an English-locale device, which made the mixed Persian/Latin lines read as though only the words had been translated.
 
-All measurements render in Persian digits (`۸۵`, `۲۳ms`, `۰٪`), but **IP addresses deliberately keep Latin digits** — they get copied into client configs, where Persian numerals would be useless.
+All measurements render in Persian digits (`۸۵`, `۲۹`, `۰٪`), but **IP addresses deliberately keep Latin digits** — they get copied into client configs, where Persian numerals would be useless.
+
+Durations are shown as bare numerals with no `ms` suffix: a Latin unit beside Persian digits reads badly in a right-to-left row, and the chip label (`پینگ`, `نوسان`) already establishes what the value is.
 
 Latin words and numeric values embedded in Persian sentences are wrapped in Unicode directional isolates (`U+2068` / `U+2069`). Without them the bidirectional algorithm reorders the run: "loss 0%" rendered as `0%لاس`, and the settings hint scrambled around the word `WebSocket`. `FormatTest` pins both rules, including that an address never contains a Persian digit.
 
@@ -144,7 +154,7 @@ Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner
 - Every push/PR touching `apps/cf-scanner/**` runs the unit tests, builds the APK, and uploads it as an artifact
 - Pushing a tag `cf-scanner-v<version>` publishes the APK as a GitHub Release asset
 
-Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.0.7**.
+Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.0.8**.
 
 ## Details
 

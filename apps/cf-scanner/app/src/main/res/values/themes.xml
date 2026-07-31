@@ -1,7 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
 
-    <style name="Theme.CfScanner" parent="Theme.Material3.DayNight.NoActionBar">
+    <!--
+      Shared base: type scale, font, and layout direction. Colours live in the
+      concrete themes below and in values-night, so they are defined once each.
+    -->
+    <style name="Theme.CfScanner.Base" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- The UI is Persian regardless of the device locale, so the direction
+             is forced rather than inherited. "locale" would leave the layout
+             left-to-right on an English device, which is what made the mixed
+             Persian/Latin lines read as if only the words had been translated. -->
+        <item name="android:layoutDirection">rtl</item>
+        <item name="android:textDirection">rtl</item>
+        <item name="android:textAlignment">viewStart</item>
+
+        <!-- Vazirmatn everywhere. Overriding the Material type scale rather than
+             setting fontFamily per view keeps every component consistent,
+             including ones we never touch directly such as dialogs, dropdown
+             menus, and snackbars. -->
+        <item name="textAppearanceDisplayLarge">@style/TextAppearance.CfScanner.DisplayLarge</item>
+        <item name="textAppearanceDisplayMedium">@style/TextAppearance.CfScanner.DisplayMedium</item>
+        <item name="textAppearanceDisplaySmall">@style/TextAppearance.CfScanner.DisplaySmall</item>
+        <item name="textAppearanceHeadlineLarge">@style/TextAppearance.CfScanner.HeadlineLarge</item>
+        <item name="textAppearanceHeadlineMedium">@style/TextAppearance.CfScanner.HeadlineMedium</item>
+        <item name="textAppearanceHeadlineSmall">@style/TextAppearance.CfScanner.HeadlineSmall</item>
+        <item name="textAppearanceTitleLarge">@style/TextAppearance.CfScanner.TitleLarge</item>
+        <item name="textAppearanceTitleMedium">@style/TextAppearance.CfScanner.TitleMedium</item>
+        <item name="textAppearanceTitleSmall">@style/TextAppearance.CfScanner.TitleSmall</item>
+        <item name="textAppearanceBodyLarge">@style/TextAppearance.CfScanner.BodyLarge</item>
+        <item name="textAppearanceBodyMedium">@style/TextAppearance.CfScanner.BodyMedium</item>
+        <item name="textAppearanceBodySmall">@style/TextAppearance.CfScanner.BodySmall</item>
+        <item name="textAppearanceLabelLarge">@style/TextAppearance.CfScanner.LabelLarge</item>
+        <item name="textAppearanceLabelMedium">@style/TextAppearance.CfScanner.LabelMedium</item>
+        <item name="textAppearanceLabelSmall">@style/TextAppearance.CfScanner.LabelSmall</item>
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <!-- Light colours. -->
+    <style name="Theme.CfScanner" parent="Theme.CfScanner.Base">
         <item name="colorPrimary">@color/brand</item>
         <item name="colorOnPrimary">#FFFFFFFF</item>
         <item name="colorPrimaryContainer">@color/brand_container</item>
@@ -19,23 +56,97 @@
 
         <item name="android:statusBarColor">@color/surface_light</item>
         <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
+    </style>
 
-        <!-- The UI is Persian regardless of the device locale, so the direction
-             is forced rather than inherited. "locale" would leave the layout
-             left-to-right on an English device, which is what made the mixed
-             Persian/Latin lines read as if only the words had been translated. -->
-        <item name="android:layoutDirection">rtl</item>
-        <item name="android:textDirection">rtl</item>
-        <item name="android:textAlignment">viewStart</item>
+    <!-- Type scale: Material 3 metrics with Vazirmatn substituted. -->
+    <style name="TextAppearance.CfScanner.DisplayLarge" parent="TextAppearance.Material3.DisplayLarge">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <style name="TextAppearance.CfScanner.DisplayMedium" parent="TextAppearance.Material3.DisplayMedium">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <style name="TextAppearance.CfScanner.DisplaySmall" parent="TextAppearance.Material3.DisplaySmall">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <style name="TextAppearance.CfScanner.HeadlineLarge" parent="TextAppearance.Material3.HeadlineLarge">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <style name="TextAppearance.CfScanner.HeadlineMedium" parent="TextAppearance.Material3.HeadlineMedium">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <style name="TextAppearance.CfScanner.HeadlineSmall" parent="TextAppearance.Material3.HeadlineSmall">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <style name="TextAppearance.CfScanner.TitleLarge" parent="TextAppearance.Material3.TitleLarge">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <style name="TextAppearance.CfScanner.TitleMedium" parent="TextAppearance.Material3.TitleMedium">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <style name="TextAppearance.CfScanner.TitleSmall" parent="TextAppearance.Material3.TitleSmall">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <style name="TextAppearance.CfScanner.BodyLarge" parent="TextAppearance.Material3.BodyLarge">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <style name="TextAppearance.CfScanner.BodyMedium" parent="TextAppearance.Material3.BodyMedium">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <style name="TextAppearance.CfScanner.BodySmall" parent="TextAppearance.Material3.BodySmall">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <style name="TextAppearance.CfScanner.LabelLarge" parent="TextAppearance.Material3.LabelLarge">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <style name="TextAppearance.CfScanner.LabelMedium" parent="TextAppearance.Material3.LabelMedium">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <style name="TextAppearance.CfScanner.LabelSmall" parent="TextAppearance.Material3.LabelSmall">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
     </style>
 
     <!-- Section label above each group of controls. -->
-    <style name="TextAppearance.CfScanner.Label" parent="TextAppearance.Material3.LabelMedium">
+    <style name="TextAppearance.CfScanner.Label" parent="TextAppearance.CfScanner.LabelMedium">
         <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
         <item name="android:letterSpacing">0.02</item>
     </style>
 
-    <style name="TextAppearance.CfScanner.Mono" parent="TextAppearance.Material3.TitleMedium">
+    <!--
+      IP addresses. Monospace on purpose: aligned digits make a column of
+      addresses far easier to compare, and Vazirmatn has no monospace variant.
+      The address is Latin-only, so no Persian glyphs are involved.
+    -->
+    <style name="TextAppearance.CfScanner.Mono" parent="TextAppearance.CfScanner.TitleMedium">
+        <item name="fontFamily">monospace</item>
         <item name="android:fontFamily">monospace</item>
         <item name="android:textStyle">bold</item>
     </style>
@@ -46,7 +157,7 @@
         <item name="chipStartPadding">8dp</item>
         <item name="chipEndPadding">8dp</item>
         <item name="chipIconSize">14dp</item>
-        <item name="android:textAppearance">@style/TextAppearance.Material3.LabelSmall</item>
+        <item name="android:textAppearance">@style/TextAppearance.CfScanner.LabelSmall</item>
         <item name="chipBackgroundColor">?attr/colorSurfaceVariant</item>
         <item name="chipStrokeWidth">0dp</item>
         <item name="ensureMinTouchTargetSize">false</item>

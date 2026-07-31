@@ -48,7 +48,11 @@
     <string name="chip_jitter">نوسان %1$s</string>
     <string name="chip_loss">اتلاف %1$s</string>
     <string name="chip_ws">\u2068WebSocket\u2069</string>
-    <string name="score_and_grade">%1$s · %2$s</string>
+    <!-- Grade then score, separated by non-breaking spaces rather than a middle
+         dot: next to a Persian numeral the dot was easily misread as another
+         digit ("۱۰۰ · عالی" looked like it ended in a zero). Ordinary spaces
+         would be collapsed, so the gap is explicit. -->
+    <string name="score_and_grade">%2$s\u00A0\u00A0%1$s</string>
 
     <string name="toast_copied">%1$s آی‌پی کپی شد</string>
     <string name="toast_copied_one">%1$s کپی شد</string>

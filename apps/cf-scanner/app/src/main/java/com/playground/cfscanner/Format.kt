@@ -55,12 +55,13 @@ object Format {
     fun ip(address: String): String = isolate(address)
 
     /**
-     * A millisecond measurement, e.g. "۲۳ms".
+     * A millisecond measurement as a bare Persian numeral, e.g. "۲۳".
      *
-     * The unit stays Latin because that is how it is universally written, and the
-     * whole token is isolated so it cannot be split by the bidi algorithm.
+     * The unit is deliberately omitted. "۲۳ms" mixes Persian digits with a Latin
+     * unit inside a right-to-left row and reads badly; the chip label ("پینگ",
+     * "نوسان") already establishes that the value is a duration.
      */
-    fun millis(value: Long): String = isolate("${persianDigits(value.toString())}ms")
+    fun millis(value: Long): String = isolate(persianDigits(value.toString()))
 
     /** A percentage, e.g. "۰٪", using the Persian percent sign. */
     fun percent(value: Int): String = isolate("${persianDigits(value.toString())}٪")
