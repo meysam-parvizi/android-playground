@@ -68,6 +68,7 @@
     <string name="chip_ping">پینگ %1$s</string>
     <string name="chip_jitter">نوسان %1$s</string>
     <string name="chip_loss">اتلاف %1$s</string>
+    <string name="chip_speed">%1$s مگابیت</string>
     <string name="chip_ws">\u2068WebSocket\u2069</string>
     <!-- Grade then score, separated by non-breaking spaces rather than a middle
          dot: next to a Persian numeral the dot was easily misread as another

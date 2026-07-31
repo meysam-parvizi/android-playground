@@ -43,6 +43,14 @@ class Prober(
      */
     private val idleHoldMs: Int = 2500,
     private val testWebSocket: Boolean = true,
+    /**
+     * Bytes to pull from Cloudflare's speed endpoint, or 0 to skip.
+     *
+     * Handshakes alone do not prove an IP can carry traffic: some complete TLS
+     * and answer /cdn-cgi/trace, then stall as soon as real bytes flow. A small
+     * transfer catches those. Kept small because it is paid once per candidate.
+     */
+    private val downloadBytes: Int = 0,
 ) {
 
     /** SNI hostnames rotated across probes so DPI cannot key on one domain. */
@@ -136,6 +144,17 @@ class Prober(
                         socket = null
                         probeWebSocket(ip, port, sni, result)
                     }
+
+                    // Payload transfer, last and only once: it is the most
+                    // expensive stage, so it runs only for an IP that has already
+                    // proven it can hold a connection.
+                    if (downloadBytes > 0 && result.stableOk && !result.downloadTested) {
+                        tls?.closeQuietly()
+                        socket?.closeQuietly()
+                        tls = null
+                        socket = null
+                        probeDownload(ip, port, sni, result)
+                    }
                 } catch (ce: CancellationException) {
                     throw ce
                 } catch (_: Exception) {
@@ -172,7 +191,10 @@ class Prober(
             }
         }
 
-    /** Issues GET /cdn-cgi/trace and extracts the HTTP status plus colo code. */
+    /**
+     * Issues GET /cdn-cgi/trace and extracts the HTTP status, colo, and any
+     * `Server-Timing` telemetry the edge volunteers.
+     */
     private fun verifyEdge(socket: Socket, sni: String, result: ScanResult) {
         try {
             val request = buildString {
@@ -191,11 +213,21 @@ class Prober(
             val statusLine = reader.readLine() ?: return
             statusLine.split(" ").getOrNull(1)?.toIntOrNull()?.let { result.httpStatus = it }
 
-            // Skip headers.
+            // Collect Server-Timing while walking the headers. The response
+            // carries it more than once, so every occurrence is kept.
+            val timings = mutableListOf<String>()
             while (true) {
                 val line = reader.readLine() ?: break
                 if (line.isEmpty()) break
+                val colon = line.indexOf(':')
+                if (colon > 0 && line.substring(0, colon).trim().equals("server-timing", true)) {
+                    timings.add(line.substring(colon + 1).trim())
+                }
             }
+            if (timings.isNotEmpty()) {
+                ServerTimingParser.parse(timings).takeIf { it.hasAnything }?.let { result.edge = it }
+            }
+
             // Body is the trace key=value list; find colo.
             var guard = 0
             while (guard++ < 40) {
@@ -313,6 +345,109 @@ class Prober(
                 throw ce
             } catch (_: Exception) {
                 // Leave wsOk false.
+            } finally {
+                tls?.closeQuietly()
+                socket?.closeQuietly()
+            }
+        }
+
+    /**
+     * Pulls a small payload from Cloudflare's speed endpoint through [ip].
+     *
+     * This closes a real gap. Every earlier stage only proves the connection can
+     * be *established*: TCP connects, TLS completes, the edge answers a tiny
+     * trace request, and the link survives being idle. An IP can pass all of that
+     * and still stall the instant a real transfer starts. Moving actual bytes is
+     * the only way to see it.
+     *
+     * Sets [ScanResult.downloadTested] so a failure is distinguishable from
+     * never having tried, and records throughput on success.
+     */
+    private suspend fun probeDownload(ip: String, port: Int, sni: String, result: ScanResult) =
+        withContext(Dispatchers.IO) {
+            result.downloadTested = true
+            var socket: Socket? = null
+            var tls: SSLSocket? = null
+            try {
+                socket = Socket()
+                socket.soTimeout = timeoutMs
+                connectCancellable(socket, InetSocketAddress(ip, port))
+                tls = (probeSocketFactory.createSocket(socket, sni, port, false) as SSLSocket).apply {
+                    soTimeout = timeoutMs
+                    sslParameters = sslParameters.apply { serverNames = listOf(SNIHostName(sni)) }
+                    startHandshake()
+                }
+
+                val request = buildString {
+                    append("GET /__down?bytes=$downloadBytes HTTP/1.1\r\n")
+                    append("Host: speed.cloudflare.com\r\n")
+                    append("User-Agent: Mozilla/5.0\r\n")
+                    append("Accept: */*\r\n")
+                    append("Connection: close\r\n\r\n")
+                }
+                val started = System.nanoTime()
+                tls.getOutputStream().apply {
+                    write(request.toByteArray())
+                    flush()
+                }
+
+                val input = tls.getInputStream()
+                // Read past the headers, capturing Server-Timing on the way: this
+                // endpoint reports richer TCP telemetry than the trace request.
+                val timings = mutableListOf<String>()
+                val headerLine = StringBuilder()
+                var blankSeen = false
+                var headerBytes = 0
+                while (!blankSeen && headerBytes < 16_384) {
+                    val b = input.read()
+                    if (b == -1) break
+                    headerBytes++
+                    val c = b.toChar()
+                    if (c == '\n') {
+                        val line = headerLine.toString().trim()
+                        if (line.isEmpty()) {
+                            blankSeen = true
+                        } else {
+                            val colon = line.indexOf(':')
+                            if (colon > 0 &&
+                                line.substring(0, colon).trim().equals("server-timing", true)
+                            ) {
+                                timings.add(line.substring(colon + 1).trim())
+                            }
+                        }
+                        headerLine.setLength(0)
+                    } else if (c != '\r') {
+                        headerLine.append(c)
+                    }
+                }
+
+                // Drain the body and measure how fast it arrived.
+                val buf = ByteArray(8 * 1024)
+                var total = 0L
+                while (true) {
+                    val n = input.read(buf)
+                    if (n <= 0) break
+                    total += n
+                    if (total >= downloadBytes) break
+                }
+                val elapsedMs = (System.nanoTime() - started) / 1_000_000
+
+                if (total > 0 && elapsedMs > 0) {
+                    // Discount the edge's own processing time so the figure is
+                    // transfer speed rather than transfer plus server think-time.
+                    val edgeMs = ServerTimingParser.parse(timings).edgeDurationMs ?: 0
+                    val netMs = (elapsedMs - edgeMs).coerceAtLeast(1)
+                    result.throughputBps = (total * 1000) / netMs
+                }
+                // Merge in this endpoint's telemetry; it is usually richer.
+                if (timings.isNotEmpty()) {
+                    ServerTimingParser.parse(timings).takeIf { it.hasAnything }
+                        ?.let { result.edge = it }
+                }
+            } catch (ce: CancellationException) {
+                throw ce
+            } catch (_: Exception) {
+                // Leave throughput at 0; downloadTested marks this as a failure.
             } finally {
                 tls?.closeQuietly()
                 socket?.closeQuietly()

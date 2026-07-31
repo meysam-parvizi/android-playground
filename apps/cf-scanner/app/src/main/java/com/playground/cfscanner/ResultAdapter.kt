@@ -32,6 +32,7 @@ class ResultAdapter(
         val chipJitter: Chip = view.findViewById(R.id.chipJitter)
         val chipLoss: Chip = view.findViewById(R.id.chipLoss)
         val chipColo: Chip = view.findViewById(R.id.chipColo)
+        val chipSpeed: Chip = view.findViewById(R.id.chipSpeed)
         val chipWs: Chip = view.findViewById(R.id.chipWs)
 
         /** Cached so the default chip colour is not re-read on every bind. */
@@ -93,6 +94,14 @@ class ResultAdapter(
         holder.chipColo.text = r.colo
         holder.chipColo.visibility = if (r.colo.isEmpty()) View.GONE else View.VISIBLE
 
+        // Throughput, only when a transfer was actually measured.
+        if (r.throughputBps > 0) {
+            holder.chipSpeed.text = ctx.getString(R.string.chip_speed, Format.speed(r.throughputBps))
+            holder.chipSpeed.visibility = View.VISIBLE
+        } else {
+            holder.chipSpeed.visibility = View.GONE
+        }
+
         // WebSocket carry is a real capability signal, so highlight it.
         holder.chipWs.visibility = if (r.wsOk) View.VISIBLE else View.GONE
         if (r.wsOk) {
@@ -143,7 +152,8 @@ class ResultAdapter(
                 a.jitterMs() == b.jitterMs() &&
                 a.loss() == b.loss() &&
                 a.colo == b.colo &&
-                a.wsOk == b.wsOk
+                a.wsOk == b.wsOk &&
+                a.throughputBps == b.throughputBps
         }
     }
 

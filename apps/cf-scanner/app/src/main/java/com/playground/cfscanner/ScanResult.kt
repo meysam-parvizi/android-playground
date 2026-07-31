@@ -23,31 +23,87 @@ data class ScanResult(
     var colo: String = "",
     /** Download throughput in bytes/sec; 0 when not measured. */
     var throughputBps: Long = 0,
+    /**
+     * Whether a payload download was attempted at all.
+     *
+     * Needed to distinguish "not tested" from "tested and failed": an IP that
+     * completes every handshake but stalls the moment real bytes flow is useless,
+     * and only a failed transfer reveals it.
+     */
+    var downloadTested: Boolean = false,
+    /**
+     * Cloudflare's own view of the connection, from `Server-Timing`.
+     *
+     * Optional and best-effort — the headers are undocumented. When present it
+     * gives real TCP loss and retransmit counts plus a server-side RTT, all of
+     * which are more trustworthy than what a handful of client samples can infer.
+     */
+    var edge: EdgeTiming? = null,
 ) {
 
     val attempts: Int get() = latencies.size
     val successes: Int get() = latencies.count { it > 0 }
 
-    /** Packet loss as a percentage (0..100). */
-    fun loss(): Double =
-        if (latencies.isEmpty()) 100.0
-        else (latencies.count { it == 0L }.toDouble() / latencies.size) * 100.0
-
-    /** Mean latency over successful attempts only. */
+    /**
+     * Mean latency over successful attempts only.
+     *
+     * The edge's own processing time is subtracted when Cloudflare reported it,
+     * so the figure reflects network round-trip rather than round-trip plus
+     * however long the edge spent thinking.
+     */
     fun avgMs(): Long {
         val ok = latencies.filter { it > 0 }
-        return if (ok.isEmpty()) 0 else ok.sum() / ok.size
+        if (ok.isEmpty()) return 0
+        val raw = ok.sum() / ok.size
+        val serverSide = edge?.edgeDurationMs ?: 0
+        // Never report below 1 ms: a measurement cannot be instantaneous, and
+        // clamping avoids a nonsensical 0 that would read as "failed".
+        return (raw - serverSide).coerceAtLeast(1)
     }
 
     fun minMs(): Long = latencies.filter { it > 0 }.minOrNull() ?: 0
 
-    /** Standard deviation of successful latencies — connection steadiness. */
-    fun jitterMs(): Long {
+    /**
+     * Latency consistency.
+     *
+     * Prefers Cloudflare's `rtt_var`, which the server's TCP stack maintains over
+     * the whole connection, to a standard deviation computed from three client
+     * samples. Falls back to the client figure when the header is absent.
+     */
+    fun jitterMs(): Long = edge?.rttVarMs ?: clientJitterMs()
+
+    /** Standard deviation of successful latencies, measured client-side. */
+    fun clientJitterMs(): Long {
         val ok = latencies.filter { it > 0 }
         if (ok.size < 2) return 0
         val mean = ok.average()
         val variance = ok.sumOf { (it - mean) * (it - mean) } / ok.size
         return sqrt(variance).toLong()
+    }
+
+    /**
+     * Packet loss as a percentage (0..100).
+     *
+     * Client-side loss is coarse: with three attempts it can only be 0, 33, 66 or
+     * 100. When Cloudflare reports segment-level `lost`/`retrans` counts, those
+     * are blended in so a connection that completed every attempt but retransmitted
+     * heavily is not scored as flawless.
+     */
+    fun loss(): Double {
+        val attemptLoss =
+            if (latencies.isEmpty()) 100.0
+            else (latencies.count { it == 0L }.toDouble() / latencies.size) * 100.0
+
+        val e = edge ?: return attemptLoss
+        val lost = e.lost ?: 0
+        val retrans = e.retrans ?: 0
+        if (lost == 0 && retrans == 0) return attemptLoss
+
+        // Retransmissions are a weaker signal than outright loss, so they count
+        // for less. Each event adds a few percent, capped so server telemetry can
+        // never by itself mark an otherwise working IP as unusable.
+        val penalty = (lost * 4.0 + retrans * 2.0).coerceAtMost(30.0)
+        return (attemptLoss + penalty).coerceAtMost(100.0)
     }
 
     /**
@@ -66,6 +122,10 @@ data class ScanResult(
         if (colo.isEmpty()) return false
         // The decisive check for Iran: survived the idle hold.
         if (!stableOk) return false
+        // If a payload transfer was attempted, it had to actually move bytes.
+        // Some IPs complete every handshake and answer /cdn-cgi/trace, then stall
+        // the moment real data flows — a handshake-only probe cannot see that.
+        if (downloadTested && throughputBps <= 0) return false
         return true
     }
 

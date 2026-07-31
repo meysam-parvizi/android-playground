@@ -57,4 +57,79 @@ class CloudflareRangesTest {
             )
         }
     }
+
+    /**
+     * Size-weighted sampling must actually follow block size.
+     *
+     * Cloudflare's ranges differ in size by 512x: `104.16.0.0/13` holds 524,288
+     * addresses, `131.0.72.0/22` holds 1,024. Picking a range uniformly gives each
+     * address of a small block ~512x more sampling pressure — an accidental bias.
+     * With weighting on, the big blocks should dominate in proportion to their size.
+     */
+    @Test
+    fun sizeWeightedSamplingFavoursLargeBlocks() {
+        // preferIranFriendlyRanges off so the whole list is in play.
+        val weighted = ScanEngine(
+            ScanConfig(
+                targetCount = 3000,
+                preferIranFriendlyRanges = false,
+                sizeWeightedSampling = true,
+            ),
+        ).sampleIps(3000)
+
+        val bigBlocks = listOf("104.16.0.0/13", "172.64.0.0/13", "104.24.0.0/14")
+            .map { CloudflareRanges.parse(it) }
+        val inBig = weighted.count { ip ->
+            val v = CloudflareRanges.ipToLong(ip)
+            bigBlocks.any { it.contains(v) }
+        }
+        // Those three blocks are ~86% of Cloudflare's IPv4 space, so with correct
+        // weighting they should take the clear majority of samples.
+        val share = inBig.toDouble() / weighted.size
+        assertTrue(
+            "size-weighted sampling put only ${(share * 100).toInt()}% in the largest blocks",
+            share > 0.70,
+        )
+    }
+
+    @Test
+    fun uniformSamplingSpreadsAcrossBlocksRegardlessOfSize() {
+        val uniform = ScanEngine(
+            ScanConfig(
+                targetCount = 3000,
+                preferIranFriendlyRanges = false,
+                sizeWeightedSampling = false,
+            ),
+        ).sampleIps(3000)
+
+        val bigBlocks = listOf("104.16.0.0/13", "172.64.0.0/13", "104.24.0.0/14")
+            .map { CloudflareRanges.parse(it) }
+        val share = uniform.count { ip ->
+            val v = CloudflareRanges.ipToLong(ip)
+            bigBlocks.any { it.contains(v) }
+        }.toDouble() / uniform.size
+
+        // 3 of 15 blocks chosen uniformly is ~20%, nowhere near their 86% of space.
+        assertTrue(
+            "uniform sampling should not concentrate in the big blocks, got ${(share * 100).toInt()}%",
+            share < 0.40,
+        )
+    }
+
+    @Test
+    fun bothSamplingModesStayInsideCloudflareRanges() {
+        val nets = CloudflareRanges.parseAll()
+        for (weighted in listOf(true, false)) {
+            val ips = ScanEngine(
+                ScanConfig(targetCount = 300, sizeWeightedSampling = weighted),
+            ).sampleIps(300)
+            assertTrue(ips.isNotEmpty())
+            for (ip in ips) {
+                assertTrue(
+                    "$ip escaped Cloudflare's ranges (weighted=$weighted)",
+                    CloudflareRanges.isCloudflare(CloudflareRanges.ipToLong(ip), nets),
+                )
+            }
+        }
+    }
 }

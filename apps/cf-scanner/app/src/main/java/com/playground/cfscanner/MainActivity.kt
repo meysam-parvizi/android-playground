@@ -180,6 +180,11 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
             // restricted-network mode and quick otherwise.
             idleHoldMs = if (iranMode) 2500 else 1200,
             testWebSocket = iranMode,
+            // Transfer a small payload in restricted-network mode: an IP that
+            // handshakes cleanly and then stalls on real data is worse than
+            // useless, and only moving bytes reveals it. 128 KB is enough to
+            // expose a stall without materially lengthening the scan.
+            downloadBytes = if (iranMode) 128 * 1024 else 0,
         )
 
         scanJob = lifecycleScope.launch {

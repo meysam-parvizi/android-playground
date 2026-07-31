@@ -65,4 +65,19 @@ object Format {
 
     /** A percentage, e.g. "۰٪", using the Persian percent sign. */
     fun percent(value: Int): String = isolate("${persianDigits(value.toString())}٪")
+
+    /**
+     * A transfer rate in megabits per second, e.g. "۱٫۴ مگابیت".
+     *
+     * Megabits rather than megabytes because that is how connection speed is
+     * quoted everywhere, and one decimal place because a scan measures a short
+     * burst — more precision would imply accuracy the measurement does not have.
+     */
+    fun speed(bytesPerSecond: Long): String {
+        val mbps = bytesPerSecond * 8.0 / 1_000_000.0
+        val rounded = kotlin.math.round(mbps * 10) / 10.0
+        // Persian uses U+066B as its decimal separator.
+        val text = persianDigits(rounded.toString().replace('.', '\u066B'))
+        return isolate(text)
+    }
 }

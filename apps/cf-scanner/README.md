@@ -21,10 +21,32 @@ Each candidate goes through five stages per attempt, repeated `tries` times:
 | 3. `GET /cdn-cgi/trace` | It is a **genuine Cloudflare edge**, and reveals the colo |
 | 4. **Idle hold** | DPI does **not** reset the connection when it goes quiet |
 | 5. WebSocket upgrade | Proxy protocols (VLESS/Trojan ride WS-over-TLS) can pass |
+| 6. **Payload transfer** | It can actually move bytes, not merely open a connection |
 
 Stage 4 is the one that matters most, and the one latency-based scanners skip. An IP that fails it is marked unhealthy no matter how fast it looked.
 
+Stage 6 closes a separate gap: an IP can pass every handshake and still stall the instant real data flows. Only moving bytes reveals that, so a transfer that returns nothing marks the IP unhealthy.
+
 SNI is rotated across a pool of Cloudflare hostnames so DPI cannot fingerprint a single domain.
+
+### Reading Cloudflare's own telemetry
+
+Cloudflare's speed endpoints return `Server-Timing` headers that expose the server's view of the connection:
+
+```
+Server-Timing: cfSpeedEdge;dur=7, cfSpeedWorker;dur=41
+server-timing: cfL4;desc="?proto=TCP&rtt=4024&min_rtt=3979&rtt_var=1524
+                &lost=0&retrans=0&delivery_rate=1091731&cwnd=53"
+```
+
+Two things are taken from it:
+
+- **`cfSpeedEdge;dur`** is subtracted from the measured latency, so the figure is network round-trip rather than round-trip plus however long the edge spent working.
+- **`cfL4`** carries segment-level `lost` and `retrans` counts plus `rtt_var`, straight from the TCP stack that served the request. This matters because client-side loss is coarse: across three attempts it can only be 0%, 33%, 66% or 100%. An IP that completed every attempt while retransmitting heavily used to score as flawless; now those events add a capped penalty, so server telemetry can sharpen the picture without ever, on its own, condemning an otherwise working IP.
+
+The headers are undocumented, so every field is optional and the parser is deliberately lenient — malformed or absent values are skipped and the scan behaves exactly as before. `ServerTimingParserTest` pins this against real captured headers and hostile input.
+
+Adapted after reading [MortezaBashsiz/CFScanner](https://github.com/MortezaBashsiz/CFScanner), which uses `cfSpeedEdge` for latency correction; the `cfL4` loss and jitter data goes further than that project reads.
 
 ## Ranking
 
@@ -50,7 +72,7 @@ Unhealthy results always sort below healthy ones, whichever sort criterion you p
 - **Two-stage idle hold** (~2.5 s in Iran mode) plus an urgent-data probe to surface a pending RST
 - **Colo-distance penalty** — far colos are down-weighted for Iranian users
 - **Real jitter** via standard deviation across attempts, not a single sample
-- **Weighted sampling** — 70% of candidates drawn from ranges that historically behave better from Iran, 30% from the full list so unusual-but-good edges still surface
+- **Weighted sampling** — 70% of candidates drawn from ranges that historically behave better from Iran, 30% from the full list so unusual-but-good edges still surface. Within a pool, ranges are picked uniformly by default; `sizeWeightedSampling` switches to picking in proportion to how many addresses each holds. Cloudflare's blocks differ in size by 512x (`104.16.0.0/13` holds 524,288 addresses, `131.0.72.0/22` holds 1,024), so uniform selection puts far more pressure on each address of a small block — a defensible heuristic, but previously an accidental one rather than a choice. Both modes are tested.
 - **Neighbour expansion** — Cloudflare edges cluster, so a hit triggers probing of adjacent addresses (cheap, high yield). Capped at 25% of the requested scan size so a healthy network cannot extend the scan indefinitely, and the progress total grows with the extra work rather than staying fixed — otherwise a scan reports nonsense like "checking 334 of 300".
 
 ## UI
@@ -231,7 +253,7 @@ Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner
 - Every push/PR touching `apps/cf-scanner/**` runs the unit tests, builds the APK, and uploads it as an artifact
 - Pushing a tag `cf-scanner-v<version>` publishes the APK as a GitHub Release asset
 
-Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.2.0**.
+Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.3.0**.
 
 ## Details
 

@@ -25,8 +25,31 @@ data class ScanConfig(
     val testWebSocket: Boolean = true,
     /** Bias sampling toward ranges that behave better on filtered networks. */
     val preferIranFriendlyRanges: Boolean = true,
+    /**
+     * Weight each range by how many addresses it holds.
+     *
+     * Cloudflare's blocks differ in size by a factor of 512: `104.16.0.0/13` holds
+     * 524,288 addresses while `131.0.72.0/22` holds 1,024. Picking a range
+     * uniformly therefore puts ~512x more sampling pressure on each address of a
+     * small block than of a large one — an accidental bias, not a decision.
+     *
+     * Left off by default: over-sampling the small blocks is a defensible
+     * heuristic, since a small range is as likely to hold a working edge as a
+     * large one, and changing the default would silently alter everyone's results.
+     * Turning it on explores the big /13s in proportion to their real size.
+     */
+    val sizeWeightedSampling: Boolean = false,
     /** After a healthy hit, also probe its immediate neighbours. */
     val expandNeighbors: Boolean = true,
+    /**
+     * Bytes to pull from Cloudflare's speed endpoint per healthy candidate, or 0
+     * to skip the transfer test.
+     *
+     * Catches IPs that complete every handshake and then stall on real data —
+     * invisible to a handshake-only probe. Costs one extra connection per healthy
+     * candidate, so it is modest by default rather than off.
+     */
+    val downloadBytes: Int = 0,
     /**
      * Upper bound on extra probes added by neighbour expansion, as a fraction of
      * [targetCount].
@@ -87,6 +110,7 @@ class ScanEngine(private val config: ScanConfig = ScanConfig()) {
             timeoutMs = config.timeoutMs,
             idleHoldMs = config.idleHoldMs,
             testWebSocket = config.testWebSocket,
+            downloadBytes = config.downloadBytes,
         )
 
         val results = Collections.synchronizedList(mutableListOf<ScanResult>())
@@ -218,20 +242,61 @@ class ScanEngine(private val config: ScanConfig = ScanConfig()) {
      * 70% of candidates come from blocks that historically work better on
      * filtered networks, and 30% from the full list so unusual-but-good edges
      * are still discovered.
+     *
+     * Within the chosen pool, [ScanConfig.sizeWeightedSampling] decides whether a
+     * range is picked uniformly or in proportion to how many addresses it holds.
      */
     fun sampleIps(count: Int): List<String> {
         val all = CloudflareRanges.parseAll(CloudflareRanges.V4)
         val preferred = CloudflareRanges.parseAll(CloudflareRanges.V4_PREFERRED)
+        // Cumulative address counts, so a range can be drawn in proportion to size.
+        val allWeights = cumulativeSizes(all)
+        val preferredWeights = cumulativeSizes(preferred)
         val out = LinkedHashSet<String>(count)
 
         var guard = 0
         val maxIterations = count * 20
         while (out.size < count && guard++ < maxIterations) {
-            val pool = if (config.preferIranFriendlyRanges && rnd.nextDouble() < 0.70) preferred else all
-            val net = pool[rnd.nextInt(pool.size)]
+            val usePreferred = config.preferIranFriendlyRanges && rnd.nextDouble() < 0.70
+            val pool = if (usePreferred) preferred else all
+            val weights = if (usePreferred) preferredWeights else allWeights
+            val net = if (config.sizeWeightedSampling) {
+                pickWeighted(pool, weights)
+            } else {
+                pool[rnd.nextInt(pool.size)]
+            }
             out.add(CloudflareRanges.longToIp(net.randomIp(rnd)))
         }
         return out.toList()
+    }
+
+    /** Running totals of range sizes, for proportional selection. */
+    private fun cumulativeSizes(nets: List<CloudflareRanges.Cidr>): LongArray {
+        val cumulative = LongArray(nets.size)
+        var running = 0L
+        for (i in nets.indices) {
+            running += nets[i].size
+            cumulative[i] = running
+        }
+        return cumulative
+    }
+
+    /** Selects a range with probability proportional to its address count. */
+    private fun pickWeighted(
+        nets: List<CloudflareRanges.Cidr>,
+        cumulative: LongArray,
+    ): CloudflareRanges.Cidr {
+        val total = cumulative.lastOrNull() ?: return nets[rnd.nextInt(nets.size)]
+        if (total <= 0) return nets[rnd.nextInt(nets.size)]
+        val target = (rnd.nextDouble() * total).toLong()
+        // Binary search for the first cumulative total exceeding the target.
+        var low = 0
+        var high = cumulative.size - 1
+        while (low < high) {
+            val mid = (low + high) / 2
+            if (cumulative[mid] <= target) low = mid + 1 else high = mid
+        }
+        return nets[low]
     }
 
     /**
