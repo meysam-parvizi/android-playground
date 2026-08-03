@@ -176,6 +176,17 @@ Two consequences worth keeping:
 
 `LocaleWiringTest` and `LocaleOverrideTest` assert all of this. None of it is visible from reading the Kotlin, which is why it needed pinning.
 
+### The startup path must never throw
+
+Overriding `attachBaseContext` puts code in the earliest position in the process, where the usual assumptions do not hold.
+
+`Context.applicationContext` **returns null inside `Application.attachBaseContext`** — the Application is not registered yet at that point. Reading preferences through it threw before `onCreate` and killed the app on launch, with Android reporting only "this app has a bug". The same call is perfectly safe from an Activity, where the Application already exists, so nothing about the code looked wrong.
+
+Two rules follow, both asserted by `StartupSafetyTest`:
+
+- Preference storage uses the context as given, never `applicationContext`. `getSharedPreferences` works on the base context, and every context in a process resolves the same file.
+- Everything reached from `attachBaseContext` or `Application.onCreate` swallows its own failures. A wrong language is a visible annoyance; an exception there is a crash before the first frame, with no screen on which to report anything.
+
 ### Every language needs its own `values-<tag>/` folder
 
 Worth knowing before adding a language, because it produced a confusing bug: the app opened in **English** on first launch even though the picker showed Persian.
@@ -321,7 +332,7 @@ Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner
 - Every push/PR touching `apps/cf-scanner/**` runs the unit tests, builds the APK, and uploads it as an artifact
 - Pushing a tag `cf-scanner-v<version>` publishes the APK as a GitHub Release asset
 
-Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.4.3**.
+Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.4.4**.
 
 ## Details
 

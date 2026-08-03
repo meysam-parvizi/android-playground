@@ -67,8 +67,20 @@ object LocaleRegistry {
     fun byTag(tag: String?): AppLocale? =
         SUPPORTED.firstOrNull { it.tag.equals(tag, ignoreCase = true) }
 
+    /**
+     * Preference storage for [context].
+     *
+     * Uses the context as given rather than `applicationContext`, because this is
+     * reached from `Application.attachBaseContext`, where the Application is not
+     * registered yet and `applicationContext` is still null. Dereferencing it
+     * there threw before `onCreate` and killed the app on launch.
+     *
+     * `getSharedPreferences` is safe on the base context: preference storage is
+     * available as soon as a context exists, and every context in a process
+     * resolves the same file.
+     */
     private fun prefs(context: Context): SharedPreferences =
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     /**
      * The language the user has chosen, or [DEFAULT].
@@ -78,9 +90,17 @@ object LocaleRegistry {
      * express what the app *intends* to show. Compare with
      * [LocaleContext.effectiveLocale], which reports what the resources actually
      * resolved to — the two disagreeing is precisely the bug this design avoids.
+     *
+     * Never throws. It runs on the startup path before anything is on screen, so
+     * a failure here would take the whole app down rather than degrade a setting;
+     * falling back to the default is always preferable to that.
      */
     fun preferred(context: Context): AppLocale =
-        byTag(prefs(context).getString(KEY_LOCALE, null)) ?: DEFAULT
+        try {
+            byTag(prefs(context).getString(KEY_LOCALE, null)) ?: DEFAULT
+        } catch (_: Exception) {
+            DEFAULT
+        }
 
     /**
      * The language the UI is currently showing.
@@ -131,16 +151,22 @@ object LocaleRegistry {
      * default explicitly makes the two agree from the very first frame.
      */
     fun restore(context: Context) {
-        if (!AppCompatDelegate.getApplicationLocales().isEmpty) return
+        try {
+            if (!AppCompatDelegate.getApplicationLocales().isEmpty) return
 
-        val stored = byTag(prefs(context).getString(KEY_LOCALE, null))
-        val locale = stored ?: DEFAULT
+            val stored = byTag(prefs(context).getString(KEY_LOCALE, null))
+            val locale = stored ?: DEFAULT
 
-        // Record the default too, so the stored value and what is displayed never
-        // disagree — that mismatch is exactly what the bug looked like.
-        if (stored == null) {
-            prefs(context).edit().putString(KEY_LOCALE, locale.tag).apply()
+            // Record the default too, so the stored value and what is displayed
+            // never disagree — that mismatch is exactly what the bug looked like.
+            if (stored == null) {
+                prefs(context).edit().putString(KEY_LOCALE, locale.tag).apply()
+            }
+            applyWithoutPersisting(locale)
+        } catch (_: Exception) {
+            // Runs in Application.onCreate, so an exception here kills the app on
+            // launch. attachBaseContext has already applied the language, making
+            // this a secondary mechanism worth losing rather than crashing over.
         }
-        applyWithoutPersisting(locale)
     }
 }

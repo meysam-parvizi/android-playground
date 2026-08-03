@@ -29,8 +29,13 @@ object LocaleContext {
      * Call from `attachBaseContext`, which runs before any resource is read.
      * Doing it later has no effect, because the configuration has already been
      * resolved by then.
+     *
+     * Never throws. This is the earliest code in the process, so an exception
+     * here kills the app before a single frame is drawn — with no screen on which
+     * to report anything. Returning [base] unchanged degrades to the device
+     * language, which is visibly wrong but recoverable.
      */
-    fun wrap(base: Context, locale: AppLocale): Context {
+    fun wrap(base: Context, locale: AppLocale): Context = try {
         val target = Locale.forLanguageTag(locale.tag)
         Locale.setDefault(target)
 
@@ -52,7 +57,9 @@ object LocaleContext {
         // left-to-right, which is half of the bug this fixes.
         config.setLayoutDirection(target)
 
-        return base.createConfigurationContext(config)
+        base.createConfigurationContext(config)
+    } catch (_: Exception) {
+        base
     }
 
     /**
@@ -62,7 +69,7 @@ object LocaleContext {
      * even when the framework overrode the request. [Format] uses it to pick digit
      * shapes, which is what stops Persian numerals appearing in an English UI.
      */
-    fun effectiveLocale(context: Context): AppLocale? {
+    fun effectiveLocale(context: Context): AppLocale? = try {
         val config = context.resources.configuration
         val active = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             config.locales.takeIf { !it.isEmpty }?.get(0)
@@ -70,6 +77,8 @@ object LocaleContext {
             @Suppress("DEPRECATION")
             config.locale
         }
-        return LocaleRegistry.byTag(active?.language)
+        LocaleRegistry.byTag(active?.language)
+    } catch (_: Exception) {
+        null
     }
 }
