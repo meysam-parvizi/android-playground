@@ -83,6 +83,6 @@
     <string name="sort_loss">Lowest loss</string>
 
     <string name="action_language">Language</string>
-    <string name="language_dialog_title">App language</string>
+    <string name="language_dialog_title">Language</string>
     <string name="language_changed">Language changed to %1$s</string>
 </resources>

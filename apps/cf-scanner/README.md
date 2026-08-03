@@ -140,13 +140,26 @@ Two steps, and no logic changes anywhere:
    AppLocale(tag = "ar", endonym = "العربية", usesPersianDigits = true)
    ```
 
-2. Create `res/values-ar/strings.xml` with the same keys as `res/values/strings.xml`.
+2. Create `res/values-ar/strings.xml` with the same keys as `res/values/strings.xml`, and add `<locale android:name="ar" />` to `res/xml/locales_config.xml`.
 
-The picker, persistence, layout direction and number formatting are all derived from that list. `StringResourceParityTest` fails the build if a declared language is missing keys, declares stray ones, leaves a value blank, or disagrees on format placeholders — so a half-translated language cannot ship and silently fall back to Persian halfway down a screen.
+The picker, persistence, layout direction and number formatting are all derived from that list. `StringResourceParityTest` fails the build if a declared language is missing keys, declares stray ones, leaves a value blank, or disagrees on format placeholders — so a half-translated language cannot ship and silently fall back to Persian halfway down a screen. `LocaleConfigTest` fails if `locales_config.xml` and the registry drift apart.
 
 Language names are shown as **endonyms**, each in its own script, because someone who cannot read the current interface language still needs to find theirs.
 
 `usesPersianDigits` is declared per language rather than inferred from writing direction: the two do not track each other, since Arabic and Persian are both right-to-left but use different digit forms.
+
+### Why `res/values/` has to be declared Persian
+
+Worth knowing before adding a language, because it produced a confusing bug: the app opened in **English** on first launch even though the language was set to Persian.
+
+The default `res/values/` folder is treated as *language-neutral*, not as Persian. Android only falls back to it when **no** qualified folder matches. Once `values-en/` existed, a request for `fa` on an English-locale device found a genuine match there — so English won, and `values/` was never consulted.
+
+Fixed in two places, because they cover different API levels:
+
+- `--default-locale fa` passed to the resource compiler (`androidResources.additionalParameters`) marks `res/values/` as a real Persian match. This is what fixes resolution on **every** supported API level.
+- `android:localeConfig="@xml/locales_config"` with `android:defaultLocale="fa"`, which the system reads on **API 33+** to also offer a per-app language picker in Settings.
+
+The alternative — copying every Persian string into a `values-fa/` folder — would leave two files to keep in sync, and Android still requires a populated default folder regardless.
 
 ### Persian numerals and bidi
 
@@ -277,7 +290,7 @@ Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner
 - Every push/PR touching `apps/cf-scanner/**` runs the unit tests, builds the APK, and uploads it as an artifact
 - Pushing a tag `cf-scanner-v<version>` publishes the APK as a GitHub Release asset
 
-Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.4.0**.
+Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.4.1**.
 
 ## Details
 

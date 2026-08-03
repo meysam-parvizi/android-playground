@@ -108,6 +108,6 @@
          shown in its own script so a speaker can find it without being able to
          read the current interface language. -->
     <string name="action_language">زبان</string>
-    <string name="language_dialog_title">زبان برنامه</string>
+    <string name="language_dialog_title">زبان</string>
     <string name="language_changed">زبان به %1$s تغییر کرد</string>
 </resources>

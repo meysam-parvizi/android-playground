@@ -66,8 +66,8 @@ android {
         applicationId = "com.playground.cfscanner"
         minSdk = 24
         targetSdk = 34
-        versionCode = 14
-        versionName = "0.4.0"
+        versionCode = 15
+        versionName = "0.4.1"
     }
 
     signingConfigs {
@@ -98,6 +98,30 @@ android {
                 signingConfig = signingConfigs.getByName("stable")
             }
         }
+    }
+
+    /**
+     * Tells AAPT2 that the unqualified `res/values/` resources are Persian.
+     *
+     * This is the fix for the UI opening in English despite the language being set
+     * to Persian. The resource system treats the default folder as
+     * language-neutral and falls back to it only when *no* qualified folder
+     * matches. On an English-locale device a request for `fa` therefore resolved
+     * to `values-en/` — a genuine match — and English won.
+     *
+     * Marking the default as `fa` makes `res/values/` a real Persian match, so the
+     * request resolves there. The alternative, copying every Persian string into a
+     * `values-fa/` folder, would leave two copies to keep in sync.
+     *
+     * Passed to the resource compiler rather than set in the manifest, because
+     * `android:localeConfig` is only consulted by the system on API 33 and above
+     * while this affects resolution on every API level the app supports.
+     */
+    androidResources {
+        additionalParameters += listOf("--default-locale", "fa")
+        // Ship only the languages actually offered, keeping the APK free of
+        // stray partial translations pulled in from libraries.
+        localeFilters += listOf("fa", "en")
     }
 
     compileOptions {
