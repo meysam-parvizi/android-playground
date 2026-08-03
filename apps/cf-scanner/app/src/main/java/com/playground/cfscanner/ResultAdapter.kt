@@ -261,7 +261,7 @@ class ResultAdapter(
          */
         val RANK_PAYLOAD = Any()
 
-        /** Grade bands mirror [ScanResult.grade]. */
+        /** Grade bands mirror [ScanResult.gradeRes]. */
         fun gradeColour(score: Int): Int = when (score) {
             in 90..100 -> R.color.grade_excellent
             in 75..89 -> R.color.grade_good

@@ -102,20 +102,6 @@ object LocaleRegistry {
             DEFAULT
         }
 
-    /**
-     * The language the UI is currently showing.
-     *
-     * Read from AppCompat first, since that is what actually drives resource
-     * resolution. The stored preference is only a fallback for the window before
-     * AppCompat has loaded its own record.
-     */
-    fun current(context: Context): AppLocale {
-        val active = AppCompatDelegate.getApplicationLocales()
-        if (!active.isEmpty) {
-            byTag(active[0]?.language)?.let { return it }
-        }
-        return preferred(context)
-    }
 
     /** Persists [locale] and applies it immediately. */
     fun apply(context: Context, locale: AppLocale) {

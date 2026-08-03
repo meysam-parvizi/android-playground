@@ -47,8 +47,6 @@ object Format {
         locale = newLocale
     }
 
-    /** Current locale, exposed for tests and callers that need to branch. */
-    fun currentLocale(): AppLocale = locale
 
     /**
      * Converts ASCII digits to the digit shape of the active language.

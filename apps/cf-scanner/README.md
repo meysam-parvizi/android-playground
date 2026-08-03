@@ -231,13 +231,32 @@ Rendering is separated from behaviour so the UI cannot contradict itself:
 
 | Type | Responsibility |
 |------|----------------|
-| `MainActivity` | Owns the scan lifecycle and `HeaderState`; contains no rendering |
+| `ScanViewModel` | Owns the scan, `HeaderState` and the ranked results; survives configuration changes |
+| `MainActivity` | Wires views to the ViewModel; holds no scan state |
 | `HeaderAdapter` | Renders the controls block, reports intent via a `Callbacks` interface |
 | `EmptyStateAdapter` | Renders the placeholder row |
 | `ResultAdapter` | Renders result rows, diffing on change |
 | `ScanPhase` / `EmptyStateRules` | Pure, unit-tested rules for which placeholder to show |
 
 `EmptyStateRules` is the single source of truth for the placeholder. That is what fixes the bug where "no healthy IP found" appeared above real results: with results present it returns no placeholder at all, in every phase, and "try again" is reachable only once a scan has actually finished empty — while a scan is running it says it is still searching.
+
+### Surviving configuration changes
+
+The scan lives in a `ViewModel`, which is not incidental. Previously it ran on `lifecycleScope` with its state in Activity fields, so a rotation, a dark-mode toggle, a font-size change — or the app's own `recreate()` on a language switch — destroyed a scan that takes minutes and discarded every result with no warning.
+
+State is collected with `repeatOnLifecycle(STARTED)`, so nothing is rendered while the app is backgrounded. The scan itself keeps running: cancelling it whenever the user glances at a notification would defeat the purpose.
+
+That has a cost worth knowing about. Android may throttle network access for a background process, and a probe deferred that way times out and is recorded as packet loss exactly like a genuinely blocked address — so a good IP can be ranked low for reasons that have nothing to do with the network. Rather than silently ranking on such measurements, a scan that ran partly in the background says so when it finishes. A configuration change is excluded, since the process never actually leaves the foreground there.
+
+### Accessibility
+
+The result list is usable with a screen reader, which took three fixes.
+
+The restricted-network switch could not be toggled at all without a touchscreen. Its listener was guarded by `View.isPressed`, which is only true for a physical touch, so a TalkBack double-tap, a keyboard activation or any accessibility `ACTION_CLICK` moved the switch visually and never reached the callback — the next bind then snapped it back. It now uses an explicit suppression flag around the adapter's own writes, which is what the guard was actually for.
+
+Each result row exposed six focusable metric chips. `clickable="false"` was already set, but `Chip` extends `CompoundButton` and is focusable regardless, so a screen reader stopped on every chip to announce a value and offer nothing to do — roughly ten stops per row, three thousand for a full scan, with the row's real action undiscoverable. The chips are excluded from accessibility and the row carries one combined description instead.
+
+`statusText` is a polite live region so starting and finishing a scan is announced. Deliberately only that one: the sub-status changes on every progress tick and would talk over the user continuously.
 
 ### Responsive layout
 
@@ -332,7 +351,7 @@ Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner
 - Every push/PR touching `apps/cf-scanner/**` runs the unit tests, builds the APK, and uploads it as an artifact
 - Pushing a tag `cf-scanner-v<version>` publishes the APK as a GitHub Release asset
 
-Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.4.4**.
+Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.5.0**.
 
 ## Details
 

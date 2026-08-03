@@ -61,7 +61,6 @@ data class ScanResult(
         return (raw - serverSide).coerceAtLeast(1)
     }
 
-    fun minMs(): Long = latencies.filter { it > 0 }.minOrNull() ?: 0
 
     /**
      * Latency consistency.

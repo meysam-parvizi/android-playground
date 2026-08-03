@@ -121,11 +121,9 @@
          read the current interface language. -->
     <string name="action_language">زبان</string>
     <string name="language_dialog_title">زبان</string>
-    <string name="language_changed">زبان به %1$s تغییر کرد</string>
 
     <!-- Spoken labels; not shown on screen. -->
     <string name="a11y_result_rank">رتبه %1$s</string>
-    <string name="a11y_scan_progress">وضعیت اسکن</string>
 
     <string name="scan_interrupted_warning">بخشی از این اسکن در پس‌زمینه انجام شد، بنابراین برخی نتایج ممکن است کمتر از واقعیت باشند. برای اعداد دقیق دوباره اسکن کنید.</string>
 </resources>

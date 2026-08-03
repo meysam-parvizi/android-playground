@@ -66,8 +66,8 @@ android {
         applicationId = "com.playground.cfscanner"
         minSdk = 24
         targetSdk = 34
-        versionCode = 18
-        versionName = "0.4.4"
+        versionCode = 19
+        versionName = "0.5.0"
     }
 
     signingConfigs {
