@@ -119,9 +119,6 @@ android {
      */
     androidResources {
         additionalParameters += listOf("--default-locale", "fa")
-        // Ship only the languages actually offered, keeping the APK free of
-        // stray partial translations pulled in from libraries.
-        localeFilters += listOf("fa", "en")
     }
 
     compileOptions {
