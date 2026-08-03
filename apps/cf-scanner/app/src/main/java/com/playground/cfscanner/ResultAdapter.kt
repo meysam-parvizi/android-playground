@@ -10,6 +10,8 @@ import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.chip.Chip
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Renders ranked scan results, best first.
@@ -52,20 +54,21 @@ class ResultAdapter(
     /**
      * Replaces the visible list, dispatching only the rows that actually changed.
      *
-     * The caller passes a list already sorted off the main thread; this method
-     * just diffs and swaps.
+     * The caller passes a list already sorted off the main thread, and the diff
+     * itself is computed off the main thread too — `calculateDiff` is O(N·D) and
+     * each comparison recomputes four derived metrics, which is far too much to
+     * run on the main thread several times a second during a scan.
      */
-    fun submit(newItems: List<ScanResult>) {
-        val diff = DiffUtil.calculateDiff(Diff(items, newItems), false)
+    suspend fun submit(newItems: List<ScanResult>) {
+        val snapshot = items.toList()
+        val diff = withContext(Dispatchers.Default) {
+            // detectMoves is on: ranking reorders constantly as results stream
+            // in, and a move is much cheaper to dispatch than a rebind.
+            DiffUtil.calculateDiff(Diff(snapshot, newItems), true)
+        }
         items.clear()
         items.addAll(newItems)
         diff.dispatchUpdatesTo(this)
-    }
-
-    fun clear() {
-        val had = items.size
-        items.clear()
-        if (had > 0) notifyItemRangeRemoved(0, had)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
@@ -76,6 +79,20 @@ class ResultAdapter(
         }
     }
 
+    /**
+     * Partial rebind used when only a row's rank changed.
+     *
+     * A move leaves the row's data identical, so redrawing the whole card would
+     * be wasted work; only the badge depends on position.
+     */
+    override fun onBindViewHolder(holder: Holder, position: Int, payloads: MutableList<Any>) {
+        if (payloads.contains(RANK_PAYLOAD)) {
+            bindRank(holder, items[position], position)
+            return
+        }
+        super.onBindViewHolder(holder, position, payloads)
+    }
+
     override fun onBindViewHolder(holder: Holder, position: Int) {
         val r = items[position]
         val ctx = holder.itemView.context
@@ -83,10 +100,7 @@ class ResultAdapter(
         val colour = ctx.getColor(gradeColour(score))
         val tint = ctx.getColor(gradeTint(score))
 
-        holder.rank.text = Format.number(position + 1)
-        holder.rank.setTextColor(colour)
-        // Tint the shared oval per grade rather than shipping five drawables.
-        (holder.rank.background?.mutate() as? GradientDrawable)?.setColor(tint)
+        bindRank(holder, r, position)
 
         // Latin digits, isolated: an IP is copied into configs, so its digits
         // must stay ASCII and its ordering must survive the RTL layout.
@@ -140,6 +154,20 @@ class ResultAdapter(
     }
 
     /**
+     * Draws the rank badge, which is the only part of a row that depends on its
+     * position in the list.
+     */
+    private fun bindRank(holder: Holder, r: ScanResult, position: Int) {
+        val ctx = holder.itemView.context
+        val score = r.score()
+        holder.rank.text = Format.number(position + 1)
+        holder.rank.setTextColor(ctx.getColor(gradeColour(score)))
+        // Tint the shared oval per grade rather than shipping five drawables.
+        (holder.rank.background?.mutate() as? GradientDrawable)
+            ?.setColor(ctx.getColor(gradeTint(score)))
+    }
+
+    /**
      * Builds the spoken description of a result row.
      *
      * Reads as a sentence rather than a list of labels, and includes only the
@@ -173,14 +201,6 @@ class ResultAdapter(
 
     override fun getItemCount(): Int = items.size
 
-    /** Snapshot of the results currently displayed, in display order. */
-    fun currentItems(): List<ScanResult> = items.toList()
-
-    /**
-     * Bare list of IPs in the order shown, best first — see [ResultExport.ipList].
-     */
-    fun exportText(): String = ResultExport.ipList(items)
-
     /**
      * Diff over the ranked list.
      *
@@ -200,9 +220,18 @@ class ResultAdapter(
         override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean =
             old[oldItemPosition].ip == new[newItemPosition].ip
 
+        /**
+         * Compares displayed data only — deliberately not position.
+         *
+         * Folding position in here meant every row below an insertion counted as
+         * changed, so a single new result rebound the whole visible list. With
+         * ranking reordering constantly that made DiffUtil equivalent to
+         * `notifyDataSetChanged`, plus the cost of computing the diff first.
+         *
+         * The rank badge does depend on position, so it is refreshed separately
+         * through [RANK_PAYLOAD] rather than by forcing a full rebind.
+         */
         override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-            // Same position and same displayed values means nothing to redraw.
-            if (oldItemPosition != newItemPosition) return false
             val a = old[oldItemPosition]
             val b = new[newItemPosition]
             return a.score() == b.score() &&
@@ -213,9 +242,25 @@ class ResultAdapter(
                 a.wsOk == b.wsOk &&
                 a.throughputBps == b.throughputBps
         }
+
+        /**
+         * Asks for a rank-only update when a row moved but its data did not.
+         *
+         * Returning a payload keeps `onBindViewHolder` from doing the full bind:
+         * only the badge is redrawn.
+         */
+        override fun getChangePayload(oldItemPosition: Int, newItemPosition: Int): Any =
+            RANK_PAYLOAD
     }
 
     private companion object {
+        /**
+         * Marks a rebind that only needs the rank badge redrawn.
+         *
+         * A plain object identity is enough; the payload carries no data.
+         */
+        val RANK_PAYLOAD = Any()
+
         /** Grade bands mirror [ScanResult.grade]. */
         fun gradeColour(score: Int): Int = when (score) {
             in 90..100 -> R.color.grade_excellent
