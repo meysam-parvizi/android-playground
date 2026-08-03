@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      Shared base: type scale, font and layout direction. Colours live in the
+      concrete themes, so each is declared once.
+    -->
+    <style name="Theme.SensorMonitor.Base" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- The UI is Persian regardless of device locale, so direction is forced
+             rather than inherited. "locale" would leave the layout left-to-right
+             on an English device. -->
+        <item name="android:layoutDirection">rtl</item>
+        <item name="android:textDirection">rtl</item>
+        <item name="android:textAlignment">viewStart</item>
+
+        <!-- Vazirmatn across the whole type scale, so components we never touch
+             directly (dialogs, menus, snackbars) pick it up too. -->
+        <item name="textAppearanceTitleLarge">@style/TextAppearance.SensorMonitor.TitleLarge</item>
+        <item name="textAppearanceTitleMedium">@style/TextAppearance.SensorMonitor.TitleMedium</item>
+        <item name="textAppearanceTitleSmall">@style/TextAppearance.SensorMonitor.TitleSmall</item>
+        <item name="textAppearanceBodyLarge">@style/TextAppearance.SensorMonitor.BodyLarge</item>
+        <item name="textAppearanceBodyMedium">@style/TextAppearance.SensorMonitor.BodyMedium</item>
+        <item name="textAppearanceBodySmall">@style/TextAppearance.SensorMonitor.BodySmall</item>
+        <item name="textAppearanceLabelLarge">@style/TextAppearance.SensorMonitor.LabelLarge</item>
+        <item name="textAppearanceLabelMedium">@style/TextAppearance.SensorMonitor.LabelMedium</item>
+        <item name="textAppearanceLabelSmall">@style/TextAppearance.SensorMonitor.LabelSmall</item>
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <!-- Light colours. -->
+    <style name="Theme.SensorMonitor" parent="Theme.SensorMonitor.Base">
+        <item name="colorPrimary">@color/brand</item>
+        <item name="colorOnPrimary">#FFFFFFFF</item>
+        <item name="colorPrimaryContainer">@color/brand_container</item>
+        <item name="colorOnPrimaryContainer">@color/on_brand_container</item>
+
+        <item name="colorSecondary">@color/brand_dark</item>
+        <item name="colorOnSecondary">#FFFFFFFF</item>
+
+        <item name="android:colorBackground">@color/surface_light</item>
+        <item name="colorSurface">@color/surface_light</item>
+        <item name="colorSurfaceVariant">@color/surface_variant_light</item>
+        <item name="colorOnSurface">@color/on_surface_light</item>
+        <item name="colorOnSurfaceVariant">@color/on_surface_variant_light</item>
+        <item name="colorOutline">@color/outline_light</item>
+
+        <item name="android:statusBarColor">@color/surface_light</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
+    </style>
+
+    <!-- Type scale: Material 3 metrics with Vazirmatn substituted. -->
+    <style name="TextAppearance.SensorMonitor.TitleLarge" parent="TextAppearance.Material3.TitleLarge">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <style name="TextAppearance.SensorMonitor.TitleMedium" parent="TextAppearance.Material3.TitleMedium">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <style name="TextAppearance.SensorMonitor.TitleSmall" parent="TextAppearance.Material3.TitleSmall">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <style name="TextAppearance.SensorMonitor.BodyLarge" parent="TextAppearance.Material3.BodyLarge">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <style name="TextAppearance.SensorMonitor.BodyMedium" parent="TextAppearance.Material3.BodyMedium">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <style name="TextAppearance.SensorMonitor.BodySmall" parent="TextAppearance.Material3.BodySmall">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <style name="TextAppearance.SensorMonitor.LabelLarge" parent="TextAppearance.Material3.LabelLarge">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <style name="TextAppearance.SensorMonitor.LabelMedium" parent="TextAppearance.Material3.LabelMedium">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="TextAppearance.SensorMonitor.LabelSmall" parent="TextAppearance.Material3.LabelSmall">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <!--
+      Readings. Monospace on purpose: these numbers change many times a second,
+      and with a proportional face every digit change shifts the ones beside it,
+      making the row shimmer. Fixed-width digits hold their position.
+    -->
+    <style name="TextAppearance.SensorMonitor.Mono" parent="TextAppearance.Material3.TitleMedium">
+        <item name="fontFamily">monospace</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+</resources>

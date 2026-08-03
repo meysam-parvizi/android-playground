@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Dark variant. Inherits the shared base, so only colours are overridden. -->
+    <style name="Theme.SensorMonitor" parent="Theme.SensorMonitor.Base">
+        <item name="colorPrimary">#FF4DB6AC</item>
+        <item name="colorOnPrimary">#FF00312B</item>
+        <item name="colorPrimaryContainer">#FF005046</item>
+        <item name="colorOnPrimaryContainer">@color/brand_container</item>
+
+        <item name="colorSecondary">#FF4DB6AC</item>
+        <item name="colorOnSecondary">#FF00312B</item>
+
+        <item name="android:colorBackground">@color/surface_dark</item>
+        <item name="colorSurface">@color/surface_dark</item>
+        <item name="colorSurfaceVariant">@color/surface_variant_dark</item>
+        <item name="colorOnSurface">@color/on_surface_dark</item>
+        <item name="colorOnSurfaceVariant">@color/on_surface_variant_dark</item>
+        <item name="colorOutline">@color/outline_dark</item>
+
+        <item name="android:statusBarColor">@color/surface_dark</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+    </style>
+
+</resources>

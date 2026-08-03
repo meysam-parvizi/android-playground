@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  One sensor card. Included three times, so every view here is addressed through
+  the include's own id rather than looked up globally.
+-->
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="12dp"
+    app:cardCornerRadius="20dp"
+    app:cardElevation="0dp"
+    app:strokeWidth="1dp"
+    app:strokeColor="?attr/colorOutline"
+    app:cardBackgroundColor="?attr/colorSurface">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Title + unit -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:baselineAligned="false">
+
+            <TextView
+                android:id="@+id/sensorTitle"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/TextAppearance.SensorMonitor.TitleSmall"
+                android:textColor="?attr/colorOnSurface"
+                tools:text="شتاب‌سنج" />
+
+            <TextView
+                android:id="@+id/sensorUnit"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_unit"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="3dp"
+                android:textAppearance="@style/TextAppearance.SensorMonitor.LabelSmall"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                tools:text="m/s²" />
+        </LinearLayout>
+
+        <!-- Axis rows. The third is hidden for scalar sensors. -->
+        <LinearLayout
+            android:id="@+id/axisContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:id="@+id/rowX"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/labelX"
+                    android:layout_width="40dp"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/TextAppearance.SensorMonitor.LabelMedium"
+                    android:textColor="@color/axis_x"
+                    tools:text="X" />
+
+                <TextView
+                    android:id="@+id/valueX"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/TextAppearance.SensorMonitor.Mono"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textAlignment="viewEnd"
+                    tools:text="۹٫۸۰۷" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowY"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/labelY"
+                    android:layout_width="40dp"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/TextAppearance.SensorMonitor.LabelMedium"
+                    android:textColor="@color/axis_y"
+                    tools:text="Y" />
+
+                <TextView
+                    android:id="@+id/valueY"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/TextAppearance.SensorMonitor.Mono"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textAlignment="viewEnd"
+                    tools:text="۰٫۰۱۲" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowZ"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/labelZ"
+                    android:layout_width="40dp"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/TextAppearance.SensorMonitor.LabelMedium"
+                    android:textColor="@color/axis_z"
+                    tools:text="Z" />
+
+                <TextView
+                    android:id="@+id/valueZ"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/TextAppearance.SensorMonitor.Mono"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textAlignment="viewEnd"
+                    tools:text="−۰٫۰۰۴" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Magnitude, for vector sensors only. -->
+        <TextView
+            android:id="@+id/magnitudeText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:textAppearance="@style/TextAppearance.SensorMonitor.BodySmall"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            tools:text="بزرگی: ۹٫۸۱۰" />
+
+        <!-- Shown instead of the readings when the sensor is missing or idle. -->
+        <TextView
+            android:id="@+id/placeholderText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:textAppearance="@style/TextAppearance.SensorMonitor.BodySmall"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:visibility="gone"
+            tools:text="این دستگاه چنین سنسوری ندارد"
+            tools:visibility="visible" />
+
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

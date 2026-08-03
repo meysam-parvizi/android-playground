@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">سنسورها</string>
+
+    <string name="status_live">در حال دریافت داده</string>
+    <string name="status_paused">متوقف شده</string>
+    <!-- Says plainly that nothing is filtered, since that is the point of the app. -->
+    <string name="status_rate_hint">مقادیر خام، بدون فیلتر یا هموارسازی</string>
+
+    <string name="action_pause">توقف</string>
+    <string name="action_resume">ادامه</string>
+    <string name="action_about">درباره</string>
+
+    <string name="sensor_accelerometer">شتاب‌سنج</string>
+    <string name="sensor_gyroscope">ژیروسکوپ</string>
+    <string name="sensor_temperature">دمای محیط</string>
+
+    <!-- Units stay Latin: that is how they are universally written, and they are
+         wrapped in directional isolates so they do not reorder in an RTL row. -->
+    <string name="unit_accelerometer">\u2068m/s²\u2069</string>
+    <string name="unit_gyroscope">\u2068rad/s\u2069</string>
+    <string name="unit_temperature">\u2068°C\u2069</string>
+
+    <string name="axis_x">\u2068X\u2069</string>
+    <string name="axis_y">\u2068Y\u2069</string>
+    <string name="axis_z">\u2068Z\u2069</string>
+    <string name="axis_value">مقدار</string>
+
+    <string name="magnitude">بزرگی: %1$s</string>
+
+    <string name="placeholder_unavailable">این دستگاه چنین سنسوری ندارد</string>
+    <!-- Ambient temperature is missing from most phones, so the absence is
+         explained rather than left looking like a fault. -->
+    <string name="placeholder_unavailable_temperature">این دستگاه سنسور دمای محیط ندارد — بیشتر گوشی‌ها آن را ندارند</string>
+    <string name="placeholder_waiting">در انتظار اولین مقدار…</string>
+
+    <string name="about_title">درباره‌ی سنسورها</string>
+    <string name="about_body">این اپ مقادیر خام سنسورهای گوشی را همان‌طور که سیستم گزارش می‌کند نمایش می‌دهد — بدون فیلتر، هموارسازی یا تبدیل واحد.\n\n<b>شتاب‌سنج</b>\nشتاب را در سه محور بر حسب متر بر مجذور ثانیه (\u2068m/s²\u2069) اندازه می‌گیرد. وقتی گوشی روی میز بی‌حرکت است، یکی از محورها حدود \u20689٫81\u2069 نشان می‌دهد؛ این شتاب گرانش زمین است و طبیعی است.\n\n<b>ژیروسکوپ</b>\nسرعت چرخش حول سه محور بر حسب رادیان بر ثانیه (\u2068rad/s\u2069). در حالت بی‌حرکت نزدیک صفر است، ولی معمولاً دقیقاً صفر نمی‌شود؛ این نوسان کوچک، نویز طبیعی سنسور است.\n\n<b>دمای محیط</b>\nدمای هوای اطراف بر حسب سلسیوس. بیشتر گوشی‌ها این سنسور را ندارند — اگر دستگاه شما ندارد، همان‌جا نوشته می‌شود.\n\n<b>بزرگی</b>\nطول برداری سه محور با هم. برای شتاب‌سنج در حالت سکون باید نزدیک \u20689٫81\u2069 باشد، صرف‌نظر از اینکه گوشی چطور نگه داشته شده.\n\n<b>نکته</b>\nمقادیر با سرعتی که سیستم تعیین می‌کند به‌روز می‌شوند. برای خواندن دقیق یک لحظه، دکمه‌ی توقف را بزنید.</string>
+    <string name="about_close">بستن</string>
+</resources>

@@ -33,6 +33,7 @@ This keeps every app's source, build, CI, and release versioning fully independe
 |-----|-------------|
 | [`tap-counter`](apps/tap-counter) | A button that increments a counter on each tap; overflows 100 → 1. |
 | [`cf-scanner`](apps/cf-scanner) | Scans Cloudflare IP ranges and ranks genuinely usable "clean" IPs, tuned for restrictive networks. |
+| [`sensor-monitor`](apps/sensor-monitor) | Live raw readings from the accelerometer, gyroscope and ambient temperature sensor. |
 
 ## Releases
 
@@ -40,6 +41,7 @@ Each app is versioned and released independently using a tag prefix:
 
 - `tap-counter-v0.0.1`, `tap-counter-v0.0.2`, …
 - `cf-scanner-v0.0.1`, `cf-scanner-v0.0.2`, …
+- `sensor-monitor-v0.1.0`, `sensor-monitor-v0.1.1`, …
 
 Pushing such a tag triggers that app's workflow, which builds the APK and attaches it to a GitHub Release.
 

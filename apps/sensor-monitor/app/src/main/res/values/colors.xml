@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Brand: a cool teal, distinct from cf-scanner's amber so the two apps are
+         not mistaken for one another in the launcher. -->
+    <color name="brand">#FF00897B</color>
+    <color name="brand_dark">#FF00695C</color>
+    <color name="brand_container">#FFB2DFDB</color>
+    <color name="on_brand_container">#FF00352F</color>
+
+    <!-- Light surfaces -->
+    <color name="surface_light">#FFFAFCFC</color>
+    <color name="surface_container_light">#FFEFF3F3</color>
+    <color name="surface_variant_light">#FFE2E8E8</color>
+    <color name="on_surface_light">#FF1A1C1C</color>
+    <color name="on_surface_variant_light">#FF4C5252</color>
+    <color name="outline_light">#FFCFD6D6</color>
+
+    <!-- Dark surfaces -->
+    <color name="surface_dark">#FF101414</color>
+    <color name="surface_container_dark">#FF1B2020</color>
+    <color name="surface_variant_dark">#FF262C2C</color>
+    <color name="on_surface_dark">#FFE6ECEC</color>
+    <color name="on_surface_variant_dark">#FFAFB8B8</color>
+    <color name="outline_dark">#FF39403F</color>
+
+    <!-- Axis colours. Distinct hues so three fast-changing numbers stay
+         separable at a glance; also chosen to remain distinguishable for the
+         most common form of colour blindness. -->
+    <color name="axis_x">#FFE5534B</color>
+    <color name="axis_y">#FF2DA44E</color>
+    <color name="axis_z">#FF3B82F6</color>
+
+    <color name="live_green">#FF1B9E4B</color>
+    <color name="paused_grey">#FF8A9494</color>
+
+</resources>
