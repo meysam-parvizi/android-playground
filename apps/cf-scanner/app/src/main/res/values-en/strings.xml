@@ -87,4 +87,6 @@
     <!-- Spoken labels; not shown on screen. -->
     <string name="a11y_result_rank">Rank %1$s</string>
     <string name="a11y_scan_progress">Scan status</string>
+
+    <string name="scan_interrupted_warning">The app was in the background during part of this scan, so some results may be understated. Rescan for accurate figures.</string>
 </resources>

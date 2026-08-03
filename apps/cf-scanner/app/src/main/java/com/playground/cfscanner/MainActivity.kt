@@ -120,6 +120,7 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
                         emptyAdapter.show(
                             EmptyStateRules.contentFor(state.phase, state.resultCount),
                         )
+                        announceIfInterrupted(state)
                     }
                 }
                 launch {
@@ -127,6 +128,45 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
                 }
             }
         }
+    }
+
+    /**
+     * Notes that the app is no longer visible.
+     *
+     * The scan keeps running — it takes minutes, and stopping it whenever the
+     * user glances at a notification would defeat the point. But Android may
+     * throttle network access for a background process, and probes deferred that
+     * way are recorded as packet loss, so the ViewModel remembers that this
+     * scan's measurements are not wholly trustworthy.
+     */
+    override fun onStop() {
+        // isChangingConfigurations excludes a rotation or language switch, where
+        // the activity is rebuilt immediately and the process never actually
+        // leaves the foreground — flagging those would warn about an
+        // interruption that did not happen.
+        if (!isChangingConfigurations) viewModel.onEnteredBackground()
+        super.onStop()
+    }
+
+    /** Tracks which finished scan has already been reported as interrupted. */
+    private var interruptionNoticeShown = false
+
+    /**
+     * Warns once when a completed scan ran partly in the background.
+     *
+     * Those probes may have been throttled by the system, so a good address can
+     * look lossy. Saying so is more honest than silently ranking on it.
+     */
+    private fun announceIfInterrupted(state: HeaderState) {
+        if (state.isScanning) {
+            interruptionNoticeShown = false
+            return
+        }
+        if (state.phase != ScanPhase.FINISHED) return
+        if (!viewModel.measurementInterrupted || interruptionNoticeShown) return
+
+        interruptionNoticeShown = true
+        snack(getString(R.string.scan_interrupted_warning))
     }
 
     // region header callbacks

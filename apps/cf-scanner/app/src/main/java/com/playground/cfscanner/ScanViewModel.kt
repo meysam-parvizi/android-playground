@@ -56,6 +56,30 @@ class ScanViewModel : ViewModel() {
         vpnWarningShown = true
     }
 
+    /**
+     * Whether the app left the foreground while a scan was running.
+     *
+     * The scan deliberately continues when backgrounded — it takes minutes, and
+     * cancelling it every time a notification is pulled down would make the app
+     * unusable. But Android may throttle background network access, and a probe
+     * that times out because the OS deferred it is recorded as packet loss just
+     * like a genuinely blocked address. Those measurements describe the
+     * throttling, not the network, and can push a good IP down the ranking or
+     * out of it entirely.
+     *
+     * Rather than silently ranking on them, the fact is recorded and surfaced so
+     * the user knows the results may understate what is available.
+     */
+    private var interrupted = false
+
+    /** True when the finished scan ran partly in the background. */
+    val measurementInterrupted: Boolean get() = interrupted
+
+    /** Called when the app stops being visible. */
+    fun onEnteredBackground() {
+        if (isScanning) interrupted = true
+    }
+
     val isScanning: Boolean get() = _state.value.isScanning
 
     fun setCount(index: Int) = update { it.copy(countIndex = index) }
@@ -81,6 +105,9 @@ class ScanViewModel : ViewModel() {
 
         found.clear()
         _results.value = emptyList()
+        // Cleared per scan: an interruption during an earlier run says nothing
+        // about this one.
+        interrupted = false
 
         // Falls back to the first option so the fallback cannot silently disagree
         // with the default shown in the UI.
