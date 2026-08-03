@@ -1,9 +1,15 @@
 package com.playground.cfscanner
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 
 /**
@@ -21,6 +27,22 @@ import org.junit.Test
  * unhealthy" as distinct from "never connected at all".
  */
 class ScanOutcomeTest {
+
+    /**
+     * The engine delivers callbacks on [Dispatchers.Main], which does not exist
+     * on a plain JVM — touching it throws "Module with the Main dispatcher had
+     * failed to initialize". Substituting a test dispatcher makes the engine
+     * runnable off-device.
+     */
+    @Before
+    fun installMainDispatcher() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+    }
+
+    @After
+    fun removeMainDispatcher() {
+        Dispatchers.resetMain()
+    }
 
     /** A prober that never connects, as if the device were offline. */
     private class AlwaysFailingProber : Prober() {
