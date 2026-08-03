@@ -99,29 +99,28 @@ class LocaleConfigTest {
     }
 
     /**
-     * The build must also tell the resource compiler which language the default
-     * folder holds.
+     * The default language must have its own qualified folder.
      *
-     * `android:localeConfig` is only read by the system from API 33 onward, but
-     * the wrong-language bug affects resource resolution on every supported API
-     * level, so the compiler flag is what actually fixes it below 33.
+     * This is the assertion that pins the fix for the UI opening in English while
+     * the language was set to Persian. Persian originally lived in the unqualified
+     * `res/values/` folder with no `values-fa/`, and the resource system consults
+     * the unqualified set only after every qualified folder has failed to match —
+     * so on an English-locale device a request for `fa` matched `values-en/` from
+     * the locale chain and English won.
+     *
+     * Note that `android:localeConfig` does not solve this: the system reads it
+     * only from API 33 onward, while the bug affects every supported API level.
+     * A real `values-fa/` folder is what fixes it.
      */
     @Test
-    fun theBuildDeclaresTheDefaultLocaleToAapt() {
-        val buildFile = File("build.gradle.kts")
-        assertTrue("missing ${buildFile.path}", buildFile.exists())
-        val text = buildFile.readText()
-
+    fun theDefaultLanguageHasItsOwnQualifiedFolder() {
+        val tag = LocaleRegistry.DEFAULT.tag
+        val folder = File("src/main/res/values-$tag/strings.xml")
         assertTrue(
-            "build.gradle.kts does not pass --default-locale to the resource " +
-                "compiler, so res/values/ is still treated as language-neutral on " +
-                "API levels below 33",
-            text.contains("--default-locale"),
-        )
-        assertTrue(
-            "--default-locale is present but does not name ${LocaleRegistry.DEFAULT.tag}",
-            Regex("""--default-locale"\s*,\s*"${LocaleRegistry.DEFAULT.tag}"""")
-                .containsMatchIn(text),
+            "the default language '$tag' has no res/values-$tag/strings.xml. Leaving it " +
+                "only in the unqualified values/ folder makes the UI open in whatever " +
+                "language matches the device instead.",
+            folder.exists(),
         )
     }
 }

@@ -1,15 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  English translation.
+  English.
 
-  Every key in values/strings.xml must appear here. StringResourceParityTest
-  fails the build if any is missing, so a partially translated language cannot
-  ship and silently fall back to Persian mid-screen.
+  Has its own qualified folder so that every language the app offers is declared
+  the same way, with no special case for one of them. values/ carries an identical
+  copy purely because Android requires a populated default set; that copy is the
+  landing spot for any device locale the app does not list.
 
-  Directional isolate escapes (\u2068 … \u2069) are kept around Latin terms even
-  though English is left-to-right: they are invisible in an LTR layout, and
-  keeping them means the two files stay structurally identical and can be diffed
-  against each other.
+  Keys must stay in step with values-fa/; StringResourceParityTest enforces it.
 -->
 <resources>
     <string name="app_name">CF Scanner</string>

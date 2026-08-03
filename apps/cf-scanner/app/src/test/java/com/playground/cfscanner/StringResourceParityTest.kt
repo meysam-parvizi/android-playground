@@ -20,6 +20,15 @@ class StringResourceParityTest {
 
     private val resDir = File("src/main/res")
 
+    /**
+     * Resolves a strings file. `null` means the unqualified `values/` fallback.
+     *
+     * Every language the app offers has its own `values-<tag>/` folder, including
+     * the default one. Persian is not in `values/` because the resource system
+     * consults the unqualified set only after every qualified folder has failed to
+     * match — so with Persian there, a request for `fa` on an English-locale device
+     * matched `values-en/` and the UI opened in English.
+     */
     private fun stringsFor(qualifier: String?): File {
         val dir = if (qualifier == null) "values" else "values-$qualifier"
         return File(resDir, "$dir/strings.xml")
@@ -55,9 +64,9 @@ class StringResourceParityTest {
     @Test
     fun everyDeclaredLanguageTranslatesEveryKey() {
         for (locale in LocaleRegistry.SUPPORTED) {
-            // The default locale's strings live in `values/`, not `values-fa/`.
-            val qualifier = if (locale == LocaleRegistry.DEFAULT) null else locale.tag
-            val translated = parse(stringsFor(qualifier))
+            // Every declared language has its own folder now, including the
+            // default one, so there is no special case here.
+            val translated = parse(stringsFor(locale.tag))
 
             val missing = defaultStrings.keys - translated.keys
             assertTrue(
@@ -72,8 +81,7 @@ class StringResourceParityTest {
     @Test
     fun translationsDeclareNoUnknownKeys() {
         for (locale in LocaleRegistry.SUPPORTED) {
-            val qualifier = if (locale == LocaleRegistry.DEFAULT) null else locale.tag
-            val translated = parse(stringsFor(qualifier))
+            val translated = parse(stringsFor(locale.tag))
 
             val unknown = translated.keys - defaultStrings.keys
             assertTrue(
@@ -96,8 +104,7 @@ class StringResourceParityTest {
         val problems = mutableListOf<String>()
 
         for (locale in LocaleRegistry.SUPPORTED) {
-            val qualifier = if (locale == LocaleRegistry.DEFAULT) null else locale.tag
-            val translated = parse(stringsFor(qualifier))
+            val translated = parse(stringsFor(locale.tag))
 
             for ((key, expected) in defaultStrings) {
                 val actual = translated[key] ?: continue
@@ -125,8 +132,7 @@ class StringResourceParityTest {
     @Test
     fun noTranslationIsBlank() {
         for (locale in LocaleRegistry.SUPPORTED) {
-            val qualifier = if (locale == LocaleRegistry.DEFAULT) null else locale.tag
-            for ((key, value) in parse(stringsFor(qualifier))) {
+            for ((key, value) in parse(stringsFor(locale.tag))) {
                 assertTrue(
                     "${locale.tag}/$key is blank",
                     value.isNotBlank(),
@@ -143,7 +149,8 @@ class StringResourceParityTest {
      */
     @Test
     fun englishContainsNoPersianText() {
-        val english = parse(stringsFor("en"))
+        // English is the unqualified fallback, so it lives in values/.
+        val english = parse(stringsFor(null))
         val leaks = english.filter { (_, value) ->
             value.any { it in '\u0600'..'\u06FF' }
         }
@@ -164,7 +171,6 @@ class StringResourceParityTest {
     @Test
     fun registryAndResourceDirectoriesAgree() {
         for (locale in LocaleRegistry.SUPPORTED) {
-            if (locale == LocaleRegistry.DEFAULT) continue
             assertTrue(
                 "'${locale.tag}' is offered in the picker but res/values-${locale.tag}/ does not exist",
                 stringsFor(locale.tag).exists(),

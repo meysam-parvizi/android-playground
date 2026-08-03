@@ -140,7 +140,7 @@ Two steps, and no logic changes anywhere:
    AppLocale(tag = "ar", endonym = "العربية", usesPersianDigits = true)
    ```
 
-2. Create `res/values-ar/strings.xml` with the same keys as `res/values/strings.xml`, and add `<locale android:name="ar" />` to `res/xml/locales_config.xml`.
+2. Create `res/values-ar/strings.xml` with the same keys as the other languages, and add `<locale android:name="ar" />` to `res/xml/locales_config.xml`.
 
 The picker, persistence, layout direction and number formatting are all derived from that list. `StringResourceParityTest` fails the build if a declared language is missing keys, declares stray ones, leaves a value blank, or disagrees on format placeholders — so a half-translated language cannot ship and silently fall back to Persian halfway down a screen. `LocaleConfigTest` fails if `locales_config.xml` and the registry drift apart.
 
@@ -148,18 +148,21 @@ Language names are shown as **endonyms**, each in its own script, because someon
 
 `usesPersianDigits` is declared per language rather than inferred from writing direction: the two do not track each other, since Arabic and Persian are both right-to-left but use different digit forms.
 
-### Why `res/values/` has to be declared Persian
+### Every language needs its own `values-<tag>/` folder
 
-Worth knowing before adding a language, because it produced a confusing bug: the app opened in **English** on first launch even though the language was set to Persian.
+Worth knowing before adding a language, because it produced a confusing bug: the app opened in **English** on first launch even though the picker showed Persian.
 
-The default `res/values/` folder is treated as *language-neutral*, not as Persian. Android only falls back to it when **no** qualified folder matches. Once `values-en/` existed, a request for `fa` on an English-locale device found a genuine match there — so English won, and `values/` was never consulted.
+Persian was in the unqualified `res/values/` folder with no `values-fa/`. That folder is treated as *language-neutral*, and Android consults it only after **every** qualified folder has failed to match. AppCompat resolves against a locale *chain* — the app's choice followed by the device's locales — so on an English phone the chain was `[fa, en]`, `values-en/` matched `en`, and English won before `values/` was ever reached.
 
-Fixed in two places, because they cover different API levels:
+The fix is a real `values-fa/` folder, so `fa` matches directly and wins first. The layout is now:
 
-- `--default-locale fa` passed to the resource compiler (`androidResources.additionalParameters`) marks `res/values/` as a real Persian match. This is what fixes resolution on **every** supported API level.
-- `android:localeConfig="@xml/locales_config"` with `android:defaultLocale="fa"`, which the system reads on **API 33+** to also offer a per-app language picker in Settings.
+| Folder | Contents | Role |
+|--------|----------|------|
+| `values-fa/` | Persian | the default language |
+| `values-en/` | English | |
+| `values/` | English | the fallback Android requires, for locales the app does not list |
 
-The alternative — copying every Persian string into a `values-fa/` folder — would leave two files to keep in sync, and Android still requires a populated default folder regardless.
+Note that `android:localeConfig` does **not** fix this. The system reads it only from API 33 onward, and resource resolution ignores it entirely; it exists here so Android's own per-app language picker in Settings offers the right languages. `LocaleConfigTest` asserts that the default language has its own qualified folder, so this cannot silently regress.
 
 ### Persian numerals and bidi
 

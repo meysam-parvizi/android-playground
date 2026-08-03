@@ -1,22 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Declares the languages this app ships.
+  Declares the languages this app ships, for Android's own per-app language
+  picker under Settings → System → Languages → App languages. The system reads
+  this from API 33 onward; below that it is simply unused.
 
-  Two purposes:
+  `android:defaultLocale` names the language to fall back to when the user's
+  preferred one is unsupported.
 
-  1. `android:defaultLocale="fa"` states that the unqualified `res/values/`
-     resources are Persian. This matters because the resource system otherwise
-     treats the default folder as language-neutral and only falls back to it when
-     no qualified folder matches — so a request for Persian on an English-locale
-     device found `values-en/`, a genuine match, and the UI came up in English
-     despite the language being set to Persian.
+  This file is *not* what makes the in-app picker work, and it is not what fixed
+  the UI opening in the wrong language — that needed a real `res/values-fa/`
+  folder, because resource resolution ignores this file entirely. Keeping the two
+  in step still matters so the system picker offers exactly the languages the app
+  can actually display.
 
-  2. On Android 13 and above the system reads this to offer a per-app language
-     picker under Settings → System → Languages → App languages, so the choice is
-     available from outside the app as well.
-
-  Keep the list in step with `LocaleRegistry.SUPPORTED`; `LocaleConfigTest`
-  fails the build if the two disagree.
+  Keep the list aligned with `LocaleRegistry.SUPPORTED`; `LocaleConfigTest` fails
+  the build if they drift apart.
 -->
 <locale-config
     xmlns:android="http://schemas.android.com/apk/res/android"

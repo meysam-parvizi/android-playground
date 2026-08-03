@@ -1,113 +1,89 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  The unqualified fallback set, required by Android for any resource referenced at
+  runtime. Contents mirror values-en/.
+
+  Neither of the app's languages relies on this file: Persian is in values-fa/ and
+  English in values-en/, each matched directly. It exists so a device locale the
+  app does not list still resolves to a real language rather than failing.
+
+  This arrangement is deliberate. Persian used to live here with no values-fa/, and
+  because the resource system consults the unqualified set only after every
+  qualified folder has failed to match, a request for "fa" on an English-locale
+  device matched values-en/ instead and the interface opened in English.
+-->
 <resources>
     <string name="app_name">CF Scanner</string>
 
-    <string name="section_settings">تنظیمات اسکن</string>
+    <string name="section_settings">Scan settings</string>
+    <string name="label_count">How many IPs to test?</string>
+    <string name="label_count_helper">Chosen at random from Cloudflare\'s ranges</string>
+    <string name="label_sort">Sort results by</string>
+    <string name="label_iran_mode">Restricted network mode</string>
+    <string name="label_iran_mode_hint">Tests connection stability and \u2068WebSocket\u2069; more accurate but a little slower</string>
+    <string name="label_results">Results</string>
+    <string name="label_results_count">Results (%1$s)</string>
 
-    <!-- "تعداد آی‌پی" alone was ambiguous: users could not tell whether it meant
-         how many to test or how many healthy ones to find. The label now says
-         what the number does, and the helper text under the field explains that
-         extra addresses may be tested on top of it. -->
-    <string name="label_count">چند آی‌پی تست شود؟</string>
-    <string name="label_count_helper">از میان رنج‌های کلادفلر به‌صورت تصادفی انتخاب می‌شوند</string>
-    <string name="label_sort">مرتب‌سازی نتایج</string>
+    <string name="action_scan">Start scan</string>
+    <string name="action_stop">Stop scan</string>
+    <string name="action_copy">Copy</string>
+    <string name="action_about">About</string>
 
-    <string name="label_iran_mode">حالت شبکه‌ی محدود</string>
-    <!-- The Latin word is wrapped in directional isolates (U+2068 / U+2069) so
-         the bidi algorithm cannot drag it out of position. -->
-    <string name="label_iran_mode_hint">تست پایداری اتصال و \u2068WebSocket\u2069؛ دقیق‌تر ولی کمی کندتر</string>
+    <string name="status_idle">Ready to scan</string>
+    <string name="status_scanning">Scanning…</string>
+    <string name="status_progress">Tested %1$s of %2$s</string>
+    <string name="status_done">Scan complete</string>
+    <string name="status_done_detail">%1$s tested: %2$s healthy, %3$s unhealthy</string>
+    <string name="status_stopped">Scan stopped</string>
+    <string name="status_error">Scan failed</string>
+    <string name="status_healthy_badge">%1$s healthy</string>
+    <string name="status_expanded_note">%1$s extra: addresses next to each healthy IP were also tested</string>
 
-    <string name="label_results">نتایج</string>
-    <string name="label_results_count">نتایج (%1$s)</string>
+    <string name="empty_title">No results yet</string>
+    <string name="empty_hint">Press Start scan to find and rank healthy Cloudflare IPs.</string>
+    <string name="empty_searching">Looking for a healthy IP…</string>
+    <string name="empty_searching_hint">The scan is still running. Results appear here as soon as they are found.</string>
+    <string name="empty_none_found">No healthy IP found</string>
+    <string name="empty_none_found_hint">Try again, or raise the number of IPs. Network behaviour changes constantly.</string>
+    <string name="empty_stopped">Scan stopped before finding anything</string>
+    <string name="empty_stopped_hint">Start the scan again to look for a healthy IP.</string>
+    <string name="empty_error">The scan did not run</string>
+    <string name="empty_error_hint">Check your internet connection and try again.</string>
 
-    <string name="action_scan">شروع اسکن</string>
-    <string name="action_stop">توقف اسکن</string>
-    <string name="action_copy">کپی</string>
-    <string name="action_about">درباره</string>
+    <string name="vpn_dialog_title">Turn off your VPN before starting</string>
+    <string name="vpn_dialog_body">If a \u2068VPN\u2069, proxy or custom \u2068DNS\u2069 is active on this phone, the scan traffic travels through it, so what you measure describes the tunnel rather than the real network.\n\nTo find out which IPs genuinely work on a restricted connection, the scan has to run over a plain, direct connection.\n\nDisconnect every \u2068VPN\u2069, then start the scan.</string>
+    <string name="vpn_dialog_scan">Disconnected, start</string>
+    <string name="vpn_dialog_cancel">Later</string>
+    <string name="vpn_active_warning">A \u2068VPN\u2069 appears to be active — results may not be real</string>
 
-    <string name="status_idle">آماده‌ی اسکن</string>
-    <string name="status_scanning">در حال اسکن…</string>
-    <!-- Spelling out "تست‌شده" and "سالم" so the two numbers cannot be confused
-         with each other, and stating the target rather than a bare total. -->
-    <string name="status_progress">%1$s آی‌پی تست شد از %2$s</string>
-    <string name="status_done">اسکن کامل شد</string>
-    <!-- Reads as a breakdown: tested = healthy + unhealthy. Previously "۱۲۵ آی‌پی
-         بررسی شد · ۶۱ سالم" left the user to infer the 64 failures. -->
-    <string name="status_done_detail">%1$s تست شد: %2$s سالم، %3$s ناسالم</string>
-    <string name="status_stopped">اسکن متوقف شد</string>
-    <string name="status_error">خطا در اسکن</string>
-    <string name="status_healthy_badge">%1$s سالم</string>
-    <!-- Shown when neighbour expansion pushed the count past what was requested,
-         which otherwise looks like a bug ("125 of 100"). -->
-    <string name="status_expanded_note">%1$s آی‌پی اضافه: کنار هر آی‌پی سالم، آدرس‌های همسایه هم تست شدند</string>
-
-    <string name="empty_title">هنوز نتیجه‌ای نیست</string>
-    <string name="empty_hint">دکمه‌ی شروع اسکن را بزنید تا آی‌پی‌های سالم کلادفلر پیدا و رتبه‌بندی شوند.</string>
-    <string name="empty_searching">در حال جستجوی آی‌پی سالم…</string>
-    <string name="empty_searching_hint">اسکن ادامه دارد. نتایج به‌محض پیدا شدن همین‌جا نمایش داده می‌شوند.</string>
-    <string name="empty_none_found">آی‌پی سالمی پیدا نشد</string>
-    <string name="empty_none_found_hint">دوباره تلاش کنید یا تعداد آی‌پی را بیشتر کنید. رفتار شبکه مدام تغییر می‌کند.</string>
-    <string name="empty_stopped">اسکن پیش از پیدا شدن نتیجه متوقف شد</string>
-    <string name="empty_stopped_hint">برای جستجوی آی‌پی سالم دوباره اسکن را شروع کنید.</string>
-    <string name="empty_error">اسکن انجام نشد</string>
-    <string name="empty_error_hint">اتصال اینترنت را بررسی کنید و دوباره تلاش کنید.</string>
-
-    <!-- VPN warning. Shown once per app launch before the first scan: with a VPN
-         or proxy active the traffic does not take the real path, so the measured
-         latency and stability describe the tunnel rather than the network the
-         results will actually be used on. -->
-    <string name="vpn_dialog_title">قبل از شروع، VPN را خاموش کنید</string>
-    <string name="vpn_dialog_body">اگر \u2068VPN\u2069، پروکسی یا \u2068DNS\u2069 اختصاصی روی گوشی فعال باشد، ترافیک اسکن از همان مسیر عبور می‌کند و نتیجه‌ای که می‌بینید مربوط به تونل است، نه شبکه‌ی واقعی.\n\nبرای اینکه بفهمید کدام آی‌پی‌ها در شرایط محدودیت اینترنت واقعاً کار می‌کنند، اسکن باید روی اتصال معمولی و بدون واسطه انجام شود.\n\nهمه‌ی \u2068VPN\u2069ها را قطع کنید، بعد اسکن را شروع کنید.</string>
-    <string name="vpn_dialog_scan">قطع کردم، شروع کن</string>
-    <string name="vpn_dialog_cancel">بعداً</string>
-    <string name="vpn_active_warning">به نظر می‌رسد \u2068VPN\u2069 فعال است — نتایج ممکن است واقعی نباشند</string>
-
-    <!-- Values arrive pre-formatted and directionally isolated, so the label sits
-         cleanly to the right of the number in an RTL layout. "اتلاف" is the
-         standard Persian term for packet loss. -->
-    <string name="chip_ping">پینگ %1$s</string>
-    <string name="chip_jitter">نوسان %1$s</string>
-    <string name="chip_loss">اتلاف %1$s</string>
-    <!-- Labelled "سرعت" so a bare number is not mistaken for something else. It is
-         measured over a deliberately small transfer, so it proves the IP can carry
-         data rather than establishing its ceiling; the About text says so. -->
-    <string name="chip_speed">سرعت %1$s مگابیت</string>
-    <!-- Prefixed so a three-letter airport code is recognisable as a datacenter
-         rather than an unexplained tag. -->
-    <string name="chip_colo">مرکز داده %1$s</string>
+    <string name="chip_ping">Ping %1$s</string>
+    <string name="chip_jitter">Jitter %1$s</string>
+    <string name="chip_loss">Loss %1$s</string>
+    <string name="chip_speed">Speed %1$s Mbit</string>
+    <string name="chip_colo">Datacenter %1$s</string>
     <string name="chip_ws">\u2068WebSocket\u2069</string>
-    <!-- Grade then score, separated by non-breaking spaces rather than a middle
-         dot: next to a Persian numeral the dot was easily misread as another
-         digit ("۱۰۰ · عالی" looked like it ended in a zero). -->
     <string name="score_and_grade">%2$s\u00A0\u00A0%1$s</string>
 
-    <string name="toast_copied">%1$s آی‌پی کپی شد</string>
-    <string name="toast_copied_one">%1$s کپی شد</string>
-    <string name="toast_nothing">نتیجه‌ای برای کپی وجود ندارد</string>
+    <string name="toast_copied">%1$s IPs copied</string>
+    <string name="toast_copied_one">%1$s copied</string>
+    <string name="toast_nothing">There is nothing to copy</string>
 
-    <string name="about_title">درباره‌ی CF Scanner</string>
-    <string name="about_body">این اپ رنج‌های رسمی کلادفلر را اسکن می‌کند و آی‌پی‌هایی را که واقعاً قابل استفاده‌اند رتبه‌بندی می‌کند.\n\n<b>اعداد یعنی چه؟</b>\n«چند آی‌پی تست شود» تعداد آدرس‌هایی است که به‌صورت تصادفی از رنج‌های کلادفلر انتخاب و تست می‌شوند — نه تعداد آی‌پی سالمی که پیدا خواهد شد.\n\nممکن است تعداد تست‌شده از عدد انتخابی شما بیشتر شود: هر بار یک آی‌پی سالم پیدا شود، آدرس‌های همسایه‌اش هم تست می‌شوند، چون سرورهای کلادفلر معمولاً کنار هم قرار دارند.\n\n«سالم» یعنی آی‌پی همه‌ی تست‌ها را با موفقیت گذرانده. بقیه‌ی آی‌پی‌های تست‌شده ناسالم بوده‌اند و در لیست نمایش داده نمی‌شوند.\n\n<b>برچسب‌های هر آی‌پی</b>\n«پینگ» زمان رفت‌وبرگشت به آن آی‌پی به میلی‌ثانیه؛ کمتر بهتر.\n\n«نوسان» میزان بی‌ثباتی پینگ؛ کمتر بهتر. یک اتصال با پینگ بالا ولی یکنواخت، از اتصال سریع ولی پرنوسان بهتر است.\n\n«اتلاف» درصد داده‌ای که به مقصد نرسیده. علاوه بر تلاش‌های ناموفق، آمار واقعی خودِ سرور کلادفلر هم در آن لحاظ می‌شود.\n\n«سرعت» نتیجه‌ی یک دانلود کوچک (۱۲۸ کیلوبایت) از طریق همان آی‌پی است. ⚠️ این عدد سقف سرعت آن آی‌پی نیست — حجم انتقال عمداً کوچک است و در این مدت اتصال فرصت نمی‌کند به سرعت کامل برسد. کاربرد اصلی‌اش این است که نشان دهد آی‌پی واقعاً داده رد می‌کند و وسط انتقال قطع نمی‌شود.\n\n«مرکز داده» کد سرور کلادفلری است که به شما پاسخ داده؛ مثلاً \u2068VIE\u2069 یعنی وین، \u2068FRA\u2069 فرانکفورت، \u2068IST\u2069 استانبول. مرکز داده‌ی نزدیک‌تر امتیاز بیشتری می‌گیرد.\n\n«\u2068WebSocket\u2069» یعنی آی‌پی توانست اتصال \u2068WebSocket\u2069 برقرار کند — برای کلاینت‌هایی مثل \u2068VLESS\u2069 و \u2068Trojan\u2069 که روی آن کار می‌کنند مهم است.\n\n<b>هر آی‌پی چطور تست می‌شود؟</b>\nاتصال \u2068TCP\u2069، هندشیک \u2068TLS\u2069، تأیید واقعی بودن سرور کلادفلر، نگه‌داشتن اتصال بی‌کار تا مشخص شود توسط فایروال قطع نمی‌شود، و در پایان یک انتقال واقعی داده.\n\nامتیازدهی پایداری و یکنواختی را مهم‌تر از سرعت خام می‌داند؛ یعنی یک آی‌پی پایدار با پینگ ۲۵۰ بالاتر از یک آی‌پی ناپایدار با پینگ ۳۰ قرار می‌گیرد.\n\n<b>نکته‌ی مهم</b>\nحین اسکن \u2068VPN\u2069 را خاموش کنید، وگرنه نتایج مربوط به تونل خواهد بود نه شبکه‌ی واقعی.\n\nبرای کپی یک آی‌پی، روی همان ردیف بزنید. دکمه‌ی کپی، تمام لیست را به ترتیب رتبه کپی می‌کند.\n\nنتایج یک عکس لحظه‌ای هستند — رفتار شبکه مدام تغییر می‌کند، پس هر وقت آی‌پی‌ها از کار افتادند دوباره اسکن کنید.</string>
-    <string name="about_close">بستن</string>
+    <string name="about_title">About CF Scanner</string>
+    <string name="about_body">This app scans Cloudflare\'s official IP ranges and ranks the addresses that are genuinely usable.\n\n<b>What the numbers mean</b>\n"How many IPs to test" is the number of addresses picked at random from Cloudflare\'s ranges and tested — not the number of healthy ones you will end up with.\n\nThe number tested can exceed what you asked for: each time a healthy IP is found, its neighbouring addresses are tested too, because Cloudflare\'s servers tend to sit next to one another.\n\n"Healthy" means the IP passed every test. The rest were tested and failed, and are not listed.\n\n<b>The labels on each result</b>\n"Ping" is the round-trip time to that IP in milliseconds; lower is better.\n\n"Jitter" is how much the ping varies; lower is better. A connection with a high but steady ping beats a fast but erratic one.\n\n"Loss" is the share of data that never arrived. It combines failed attempts with the real figures Cloudflare\'s own server reports.\n\n"Speed" comes from a small 128 KB download through that IP. ⚠️ It is not the IP\'s top speed — the transfer is deliberately small, and a connection cannot reach full rate in that time. Its real purpose is to show that the IP actually carries data instead of stalling mid-transfer.\n\n"Datacenter" is the code of the Cloudflare server that answered you: \u2068VIE\u2069 is Vienna, \u2068FRA\u2069 Frankfurt, \u2068IST\u2069 Istanbul. A nearer datacenter scores higher.\n\n"\u2068WebSocket\u2069" means the IP accepted a \u2068WebSocket\u2069 connection — important for clients such as \u2068VLESS\u2069 and \u2068Trojan\u2069 that run over it.\n\n<b>How each IP is tested</b>\nA \u2068TCP\u2069 connection, a \u2068TLS\u2069 handshake, confirmation that it really is a Cloudflare server, holding the connection idle to see whether a firewall cuts it, and finally a real data transfer.\n\nScoring values stability and consistency above raw speed: a steady IP at 250 ms ranks above an unstable one at 30 ms.\n\n<b>Important</b>\nTurn your \u2068VPN\u2069 off while scanning, or the results describe the tunnel rather than the real network.\n\nTap a row to copy that one IP. The Copy button copies the whole list in ranked order.\n\nResults are a snapshot — network behaviour shifts constantly, so scan again whenever the IPs stop working.</string>
+    <string name="about_close">Close</string>
 
-    <!-- Quality bands. Moved out of Kotlin so they follow the selected language;
-         returning a literal from grade() left this the one part of a result row
-         that stayed Persian in an English UI. -->
-    <string name="grade_excellent">عالی</string>
-    <string name="grade_good">خوب</string>
-    <string name="grade_fair">متوسط</string>
-    <string name="grade_weak">ضعیف</string>
-    <string name="grade_unhealthy">ناسالم</string>
+    <string name="grade_excellent">Excellent</string>
+    <string name="grade_good">Good</string>
+    <string name="grade_fair">Fair</string>
+    <string name="grade_weak">Weak</string>
+    <string name="grade_unhealthy">Unhealthy</string>
 
-    <!-- Sort criteria, likewise moved out of the SortBy enum. -->
-    <string name="sort_score">امتیاز کلی</string>
-    <string name="sort_latency">کمترین پینگ</string>
-    <string name="sort_jitter">کمترین نوسان</string>
-    <string name="sort_loss">کمترین اتلاف</string>
+    <string name="sort_score">Overall score</string>
+    <string name="sort_latency">Lowest ping</string>
+    <string name="sort_jitter">Lowest jitter</string>
+    <string name="sort_loss">Lowest loss</string>
 
-    <!-- Language picker. Language names themselves are not translated: each is
-         shown in its own script so a speaker can find it without being able to
-         read the current interface language. -->
-    <string name="action_language">زبان</string>
-    <string name="language_dialog_title">زبان</string>
-    <string name="language_changed">زبان به %1$s تغییر کرد</string>
+    <string name="action_language">Language</string>
+    <string name="language_dialog_title">Language</string>
+    <string name="language_changed">Language changed to %1$s</string>
 </resources>
