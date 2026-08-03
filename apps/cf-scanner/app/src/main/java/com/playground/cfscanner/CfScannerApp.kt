@@ -1,6 +1,7 @@
 package com.playground.cfscanner
 
 import android.app.Application
+import android.content.Context
 
 /**
  * Establishes the UI language before the first activity is created.
@@ -16,14 +17,29 @@ import android.app.Application
  */
 class CfScannerApp : Application() {
 
+    /**
+     * Applies the language before any resource is read.
+     *
+     * `setApplicationLocales` alone proved unreliable: on devices whose system
+     * does not list Persian — Samsung being the case that surfaced it — the
+     * request is accepted and then ignored, and the app stays on the device
+     * locale. Rewriting the configuration here does not depend on system support.
+     */
+    override fun attachBaseContext(base: Context) {
+        val locale = LocaleRegistry.preferred(base)
+        super.attachBaseContext(LocaleContext.wrap(base, locale))
+    }
+
     override fun onCreate() {
         super.onCreate()
 
-        // No-ops once a language has been chosen; AppCompat restores that itself.
+        // Keeps AppCompat and the system settings picker in step. This is now a
+        // secondary mechanism: if the framework ignores it, attachBaseContext has
+        // already applied the language.
         LocaleRegistry.restore(this)
 
-        // Digit shapes follow the language. MainActivity re-applies this on every
-        // create, so a switch stays consistent after the recreate.
-        Format.setLocale(LocaleRegistry.current(this))
+        // Read from the configuration rather than the stored preference, so the
+        // digit shapes always match the text actually on screen.
+        Format.setLocale(LocaleContext.effectiveLocale(this) ?: LocaleRegistry.DEFAULT)
     }
 }

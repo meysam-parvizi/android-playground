@@ -71,6 +71,18 @@ object LocaleRegistry {
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     /**
+     * The language the user has chosen, or [DEFAULT].
+     *
+     * Reads only the stored preference, deliberately: this is called from
+     * `attachBaseContext`, which runs before AppCompat is usable, and it must
+     * express what the app *intends* to show. Compare with
+     * [LocaleContext.effectiveLocale], which reports what the resources actually
+     * resolved to — the two disagreeing is precisely the bug this design avoids.
+     */
+    fun preferred(context: Context): AppLocale =
+        byTag(prefs(context).getString(KEY_LOCALE, null)) ?: DEFAULT
+
+    /**
      * The language the UI is currently showing.
      *
      * Read from AppCompat first, since that is what actually drives resource
@@ -82,7 +94,7 @@ object LocaleRegistry {
         if (!active.isEmpty) {
             byTag(active[0]?.language)?.let { return it }
         }
-        return byTag(prefs(context).getString(KEY_LOCALE, null)) ?: DEFAULT
+        return preferred(context)
     }
 
     /** Persists [locale] and applies it immediately. */

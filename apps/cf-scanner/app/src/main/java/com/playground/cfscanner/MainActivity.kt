@@ -45,15 +45,30 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
 
     private val countOptions = listOf(100, 200, 300, 500, 800)
 
+    /**
+     * Applies the language to this activity's own configuration.
+     *
+     * The Application wrapper is not enough: each activity is created with a
+     * configuration derived from the framework's, so without this an activity can
+     * still come up in the device language on a device that ignored
+     * `setApplicationLocales`.
+     *
+     * This also covers the recreate that a language switch triggers, since the new
+     * instance passes through here.
+     */
+    override fun attachBaseContext(newBase: Context) {
+        val locale = LocaleRegistry.preferred(newBase)
+        super.attachBaseContext(LocaleContext.wrap(newBase, locale))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Digit shapes follow the language, so the formatter is aligned on every
-        // create — including the recreate that a language switch triggers.
-        // LocaleRegistry.current() reads AppCompat, so this reflects what the
-        // resources actually resolved to rather than a stored value that might
-        // disagree.
-        Format.setLocale(LocaleRegistry.current(this))
+        // Taken from the resolved configuration rather than the stored preference,
+        // so digit shapes always agree with the text on screen. Reading the stored
+        // value here is what produced Persian numerals inside an English UI when
+        // the framework overrode the requested language.
+        Format.setLocale(LocaleContext.effectiveLocale(this) ?: LocaleRegistry.DEFAULT)
 
         setContentView(R.layout.activity_main)
 
@@ -300,19 +315,23 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
     private fun showLanguagePicker() {
         val options = LocaleRegistry.SUPPORTED
         val labels = options.map { it.endonym }.toTypedArray()
-        val currentIndex = options.indexOf(LocaleRegistry.current(this)).coerceAtLeast(0)
+        // The user's stored choice, not the effective locale: the tick should show
+        // what they selected even on a device that failed to apply it.
+        val currentIndex = options.indexOf(LocaleRegistry.preferred(this)).coerceAtLeast(0)
 
         MaterialAlertDialogBuilder(this)
             .setTitle(R.string.language_dialog_title)
             .setSingleChoiceItems(labels, currentIndex) { dialog, which ->
                 dialog.dismiss()
                 val chosen = options[which]
-                if (chosen.tag != LocaleRegistry.current(this).tag) {
-                    // Applying a locale recreates the activity, so the whole UI
-                    // including this screen's already-rendered values is redrawn
-                    // in the new language.
-                    Format.setLocale(chosen)
+                if (chosen.tag != LocaleRegistry.preferred(this).tag) {
                     LocaleRegistry.apply(this, chosen)
+                    // Recreated explicitly rather than relying on
+                    // setApplicationLocales to do it: on devices that ignore that
+                    // call nothing would happen, and the language would appear
+                    // stuck until the next launch. attachBaseContext applies the
+                    // new choice as the activity is rebuilt.
+                    recreate()
                 }
             }
             .setNegativeButton(R.string.about_close, null)

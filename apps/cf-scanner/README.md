@@ -150,7 +150,7 @@ Language names are shown as **endonyms**, each in its own script, because someon
 
 ### Making the language actually apply
 
-Two separate things had to be right, and getting only one of them produced an app that looked correct and behaved wrongly — the picker reporting Persian while the interface stayed English and left-to-right.
+Three separate things had to be right. Getting only some of them produced an app that looked correct and behaved wrongly, and — because the failures were device-dependent — one that worked on one phone and not another.
 
 **1. The manifest service.** `AppCompatDelegate.setApplicationLocales` is silently dropped on Android 12 and below unless this is declared:
 
@@ -163,11 +163,18 @@ Two separate things had to be right, and getting only one of them produced an ap
 </service>
 ```
 
-Nothing in the Kotlin hints at this requirement, which is why it went unnoticed through two rounds of fixes. `android:enabled="false"` is correct: the service never runs, it only carries the metadata.
+**2. Applying the default on first launch.** With nothing stored, AppCompat leaves the app on the *device* locale, so the picker showed the app's default while the resources followed the phone's.
 
-**2. Applying the default on first launch.** With nothing stored, AppCompat leaves the app on the *device* locale. The picker read the app's declared default (Persian) while the resources followed the device (English) — so the two disagreed on screen. `LocaleRegistry.restore()` now applies the default when AppCompat holds nothing, and returns early once a choice exists so it does not fight AppCompat's own restored value.
+**3. Not trusting `setApplicationLocales` at all.** The decisive one. On a Samsung device whose system does not list Persian, the call was accepted and then ignored; the same build was correct on a Xiaomi. The result was English text in a left-to-right layout **with Persian numerals** — the formatter read the requested language while the resources had resolved the device's.
 
-`LocaleWiringTest` asserts both, since neither is visible from reading the Kotlin alone.
+`LocaleContext.wrap` rewrites the `Configuration` in `attachBaseContext`, on both the Application and the Activity, which no vendor build can override. The Activity matters most: each one is created with its own configuration, so wrapping only the Application still leaves it on the device language.
+
+Two consequences worth keeping:
+
+- Anything that must agree with the visible text reads `LocaleContext.effectiveLocale` — the locale the resources *actually* resolved to — never the stored preference. `LocaleRegistry.preferred` is the intent; the two disagreeing is exactly what the Persian-digits-in-English-UI bug was.
+- A language switch calls `recreate()` explicitly, because relying on `setApplicationLocales` to restart the activity does nothing on a device that ignores it.
+
+`LocaleWiringTest` and `LocaleOverrideTest` assert all of this. None of it is visible from reading the Kotlin, which is why it needed pinning.
 
 ### Every language needs its own `values-<tag>/` folder
 
@@ -314,7 +321,7 @@ Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner
 - Every push/PR touching `apps/cf-scanner/**` runs the unit tests, builds the APK, and uploads it as an artifact
 - Pushing a tag `cf-scanner-v<version>` publishes the APK as a GitHub Release asset
 
-Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.4.2**.
+Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.4.3**.
 
 ## Details
 
