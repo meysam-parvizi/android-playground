@@ -1,7 +1,6 @@
 package com.playground.cfscanner
 
 import java.io.File
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -43,18 +42,19 @@ class LocaleConfigTest {
             ?.get(1)
 
     /**
-     * The declared default must be the registry's default.
+     * `android:defaultLocale` must stay out of the file.
      *
-     * This is the assertion that pins the fix: it is what makes `res/values/`
-     * resolve as Persian rather than being treated as language-neutral.
+     * The attribute requires compileSdk 35 and this app targets 34, so its
+     * presence fails resource linking with "attribute android:defaultLocale not
+     * found". It only labels the fallback in the system's own picker, and the
+     * app's default is enforced by [LocaleRegistry.DEFAULT] regardless.
      */
     @Test
-    fun defaultLocaleMatchesTheRegistryDefault() {
-        assertEquals(
-            "locales_config.xml declares a different default than LocaleRegistry, " +
-                "which is what makes the UI open in the wrong language",
-            LocaleRegistry.DEFAULT.tag,
-            defaultLocale(),
+    fun defaultLocaleAttributeIsAbsentWhileCompileSdkIsBelow35() {
+        assertTrue(
+            "android:defaultLocale requires compileSdk 35; with compileSdk 34 it " +
+                "fails resource linking",
+            defaultLocale() == null,
         )
     }
 

@@ -2,23 +2,20 @@
 <!--
   Declares the languages this app ships, for Android's own per-app language
   picker under Settings → System → Languages → App languages. The system reads
-  this from API 33 onward; below that it is simply unused.
+  this from API 33 onward; below that it is unused.
 
-  `android:defaultLocale` names the language to fall back to when the user's
-  preferred one is unsupported.
+  `android:defaultLocale` is deliberately omitted: that attribute requires
+  compileSdk 35 and this app targets 34, so including it fails resource linking.
+  It only labels the fallback in the system picker, and the app's default is
+  already enforced by LocaleRegistry.DEFAULT.
 
-  This file is *not* what makes the in-app picker work, and it is not what fixed
+  This file does not affect resource resolution at all, so it is not what fixed
   the UI opening in the wrong language — that needed a real `res/values-fa/`
-  folder, because resource resolution ignores this file entirely. Keeping the two
-  in step still matters so the system picker offers exactly the languages the app
-  can actually display.
-
-  Keep the list aligned with `LocaleRegistry.SUPPORTED`; `LocaleConfigTest` fails
-  the build if they drift apart.
+  folder. Keeping the list aligned with `LocaleRegistry.SUPPORTED` still matters
+  so the system picker offers exactly the languages the app can display;
+  `LocaleConfigTest` fails the build if they drift apart.
 -->
-<locale-config
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:defaultLocale="fa">
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
     <locale android:name="fa" />
     <locale android:name="en" />
 </locale-config>

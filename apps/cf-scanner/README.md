@@ -162,7 +162,7 @@ The fix is a real `values-fa/` folder, so `fa` matches directly and wins first. 
 | `values-en/` | English | |
 | `values/` | English | the fallback Android requires, for locales the app does not list |
 
-Note that `android:localeConfig` does **not** fix this. The system reads it only from API 33 onward, and resource resolution ignores it entirely; it exists here so Android's own per-app language picker in Settings offers the right languages. `LocaleConfigTest` asserts that the default language has its own qualified folder, so this cannot silently regress.
+Note that `android:localeConfig` does **not** fix this. The system reads it only from API 33 onward, and resource resolution ignores it entirely; it exists here so Android's own per-app language picker in Settings offers the right languages. Its `android:defaultLocale` attribute is deliberately omitted — it requires `compileSdk 35` and this app targets 34, so including it fails resource linking. `LocaleConfigTest` asserts that the default language has its own qualified folder, which is the property that actually prevents a regression.
 
 ### Persian numerals and bidi
 
