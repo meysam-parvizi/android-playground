@@ -43,12 +43,20 @@ val checkedInKeystore: File = rootProject.file("keystore/cf-scanner-release.jks"
 
 val signingKeystore: File? = keystoreFromEnv ?: checkedInKeystore.takeIf { it.exists() }
 
-val signingStorePassword: String =
-    System.getenv("CFS_KEYSTORE_PASSWORD") ?: "cfscanner"
-val signingKeyAlias: String =
-    System.getenv("CFS_KEY_ALIAS") ?: "cf-scanner"
-val signingKeyPassword: String =
-    System.getenv("CFS_KEY_PASSWORD") ?: "cfscanner"
+/**
+ * Reads a credential from the environment, treating blank as absent.
+ *
+ * A workflow that references an undefined secret sets the variable to an empty
+ * string rather than leaving it unset, so a plain `?:` fallback does not fire
+ * and an empty password reaches the signer. That surfaces as the thoroughly
+ * misleading "keystore password was incorrect".
+ */
+fun signingCredential(name: String, fallback: String): String =
+    System.getenv(name)?.takeIf { it.isNotBlank() } ?: fallback
+
+val signingStorePassword: String = signingCredential("CFS_KEYSTORE_PASSWORD", "cfscanner")
+val signingKeyAlias: String = signingCredential("CFS_KEY_ALIAS", "cf-scanner")
+val signingKeyPassword: String = signingCredential("CFS_KEY_PASSWORD", "cfscanner")
 
 android {
     namespace = "com.playground.cfscanner"
