@@ -121,6 +121,10 @@ dependencies {
     implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
+    // ViewModel keeps the scan alive across configuration changes; without it a
+    // rotation or the language switch destroyed a scan that can take minutes.
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.4")
+    implementation("androidx.activity:activity-ktx:1.9.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
     testImplementation("junit:junit:4.13.2")

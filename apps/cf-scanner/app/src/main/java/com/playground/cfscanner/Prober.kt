@@ -35,7 +35,7 @@ import kotlin.coroutines.resumeWithException
  * `delay`, never `Thread.sleep` — blocking the dispatcher threads starves the
  * pool and freezes the whole app.
  */
-class Prober(
+open class Prober(
     private val timeoutMs: Int = 4000,
     /**
      * How long to hold an established connection idle, watching for a DPI reset.
@@ -90,7 +90,7 @@ class Prober(
      * Suspending and cooperatively cancellable: pressing Stop aborts in-flight
      * probes instead of leaving threads parked for seconds.
      */
-    suspend fun probe(ip: String, port: Int = 443, tries: Int = 3): ScanResult =
+    open suspend fun probe(ip: String, port: Int = 443, tries: Int = 3): ScanResult =
         withContext(Dispatchers.IO) {
             val result = ScanResult(ip = ip, port = port)
 

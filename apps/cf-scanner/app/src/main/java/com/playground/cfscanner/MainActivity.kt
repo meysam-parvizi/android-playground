@@ -4,29 +4,27 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * The single screen: controls, placeholder, and ranked results in one list.
  *
- * Responsibilities are deliberately narrow — this class owns the scan lifecycle
- * and the [HeaderState], while the adapters own all rendering and
- * [EmptyStateRules] owns the placeholder logic. Keeping those apart is what makes
- * it impossible for the placeholder to contradict the list, which was the source
- * of the "no healthy IP found" message appearing above real results.
+ * Deliberately thin. All scan state lives in [ScanViewModel], so a rotation, a
+ * dark-mode change, or the app's own `recreate()` on a language switch no longer
+ * destroys a scan that can take minutes. This class only wires views to that
+ * state and back.
  */
 class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
 
@@ -34,31 +32,29 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
     private lateinit var emptyAdapter: EmptyStateAdapter
     private lateinit var resultAdapter: ResultAdapter
 
-    private var scanJob: Job? = null
-    private var resortJob: Job? = null
+    private val viewModel: ScanViewModel by viewModels()
 
-    private val found = mutableListOf<ScanResult>()
-    private var state = HeaderState()
-
-    /** The VPN warning is shown once per launch; see [confirmThenScan]. */
-    private var vpnWarningShown = false
-
-    private val countOptions = listOf(100, 200, 300, 500, 800)
+    private val countOptions = COUNT_OPTIONS
 
     /**
      * Applies the language to this activity's own configuration.
      *
-     * The Application wrapper is not enough: each activity is created with a
-     * configuration derived from the framework's, so without this an activity can
-     * still come up in the device language on a device that ignored
-     * `setApplicationLocales`.
+     * This is the one place the override is needed: every view is inflated from
+     * the activity's context, so rewriting the configuration here is what makes
+     * the language stick even where `setApplicationLocales` is ignored.
      *
-     * This also covers the recreate that a language switch triggers, since the new
-     * instance passes through here.
+     * Wrapped in a catch because it runs before anything is on screen. A failure
+     * that propagates from here kills the app on launch with no way to report
+     * why; falling through to the unmodified context merely shows the wrong
+     * language.
      */
     override fun attachBaseContext(newBase: Context) {
-        val locale = LocaleRegistry.preferred(newBase)
-        super.attachBaseContext(LocaleContext.wrap(newBase, locale))
+        val wrapped = try {
+            LocaleContext.wrap(newBase, LocaleRegistry.preferred(newBase))
+        } catch (_: Throwable) {
+            newBase
+        }
+        super.attachBaseContext(wrapped)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -105,42 +101,52 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
             setItemViewCacheSize(12)
         }
 
-        render()
+        observeViewModel()
     }
 
-    // region rendering
-
-    /** Pushes the current state into the adapters. */
-    private fun render() {
-        headerAdapter.update(state)
-        emptyAdapter.show(EmptyStateRules.contentFor(state.phase, state.resultCount))
+    /**
+     * Renders whatever the ViewModel currently holds.
+     *
+     * Collected with `repeatOnLifecycle(STARTED)` so no rendering happens while
+     * the app is backgrounded: the scan keeps running, but binding views for a
+     * screen nobody is looking at is wasted main-thread work and battery.
+     */
+    private fun observeViewModel() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    viewModel.state.collectLatest { state ->
+                        headerAdapter.update(state)
+                        emptyAdapter.show(
+                            EmptyStateRules.contentFor(state.phase, state.resultCount),
+                        )
+                    }
+                }
+                launch {
+                    viewModel.results.collectLatest { resultAdapter.submit(it) }
+                }
+            }
+        }
     }
-
-    private fun setState(transform: (HeaderState) -> HeaderState) {
-        state = transform(state)
-        render()
-    }
-
-    // endregion
 
     // region header callbacks
 
     override fun onScanToggle() {
-        if (state.isScanning) stopScan() else confirmThenScan()
+        if (viewModel.isScanning) viewModel.stopScan() else confirmThenScan()
     }
 
     /**
      * Shows the VPN warning before the first scan of the session, then scans.
      *
-     * Warned once per launch rather than every time: a scan is often repeated
+     * Warned once per session rather than every time: a scan is often repeated
      * several times in a row, and a dialog on each would just be dismissed
      * reflexively. If a VPN is actually detected the warning is shown again, since
      * in that case it is not advice but a concrete problem with the results.
      */
     private fun confirmThenScan() {
         val vpnActive = VpnDetector.isActive(this)
-        if (vpnWarningShown && !vpnActive) {
-            startScan()
+        if (viewModel.vpnWarningShown && !vpnActive) {
+            viewModel.startScan(countOptions)
             return
         }
 
@@ -148,8 +154,8 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
             .setTitle(R.string.vpn_dialog_title)
             .setMessage(R.string.vpn_dialog_body)
             .setPositiveButton(R.string.vpn_dialog_scan) { _, _ ->
-                vpnWarningShown = true
-                startScan()
+                viewModel.markVpnWarningShown()
+                viewModel.startScan(countOptions)
             }
             .setNegativeButton(R.string.vpn_dialog_cancel, null)
             .show()
@@ -158,131 +164,20 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
     }
 
     override fun onCopy() {
-        val items = resultAdapter.currentItems()
+        val items = viewModel.results.value
         if (items.isEmpty()) {
             snack(getString(R.string.toast_nothing))
             return
         }
-        copyToClipboard(resultAdapter.exportText())
+        copyToClipboard(ResultExport.ipList(items))
         snack(getString(R.string.toast_copied, Format.number(items.size)))
     }
 
-    override fun onCountSelected(index: Int) = setState { it.copy(countIndex = index) }
+    override fun onCountSelected(index: Int) = viewModel.setCount(index)
 
-    override fun onSortSelected(index: Int) {
-        setState { it.copy(sortIndex = index) }
-        // User-driven, so re-rank at once rather than after the debounce.
-        resort(immediate = true)
-    }
+    override fun onSortSelected(index: Int) = viewModel.setSort(index)
 
-    override fun onIranModeChanged(enabled: Boolean) = setState { it.copy(iranMode = enabled) }
-
-    // endregion
-
-    // region scanning
-
-    private fun currentSort(): SortBy =
-        SortBy.entries.getOrElse(state.sortIndex) { SortBy.SCORE }
-
-    private fun startScan() {
-        found.clear()
-        resultAdapter.submit(emptyList())
-
-        // Falls back to the first option so the fallback cannot silently disagree
-        // with the default shown in the UI.
-        val count = countOptions.getOrElse(state.countIndex) { countOptions.first() }
-        setState {
-            it.copy(
-                phase = ScanPhase.SCANNING,
-                probed = 0,
-                total = count,
-                healthy = 0,
-                resultCount = 0,
-                requested = count,
-            )
-        }
-
-        val iranMode = state.iranMode
-        val config = ScanConfig(
-            targetCount = count,
-            preferIranFriendlyRanges = iranMode,
-            // The idle hold proves an IP survives DPI, so keep it generous in
-            // restricted-network mode and quick otherwise.
-            idleHoldMs = if (iranMode) 2500 else 1200,
-            testWebSocket = iranMode,
-            // Transfer a small payload in restricted-network mode: an IP that
-            // handshakes cleanly and then stalls on real data is worse than
-            // useless, and only moving bytes reveals it. 128 KB is enough to
-            // expose a stall without materially lengthening the scan.
-            downloadBytes = if (iranMode) 128 * 1024 else 0,
-        )
-
-        scanJob = lifecycleScope.launch {
-            try {
-                val all = ScanEngine(config).scan(
-                    onProgress = { p ->
-                        setState {
-                            it.copy(probed = p.probed, total = p.total, healthy = p.healthy)
-                        }
-                    },
-                    onResult = { r ->
-                        found.add(r)
-                        setState { it.copy(resultCount = found.size) }
-                        resort() // debounced; sorting happens off the main thread
-                    },
-                )
-                // Flush any debounced re-rank so the final list is complete.
-                resort(immediate = true)
-                setState {
-                    // Keep the counts the engine last reported: neighbour
-                    // expansion means the number probed is not the number
-                    // originally requested, and showing "334 of 300" is nonsense.
-                    it.copy(
-                        phase = ScanPhase.FINISHED,
-                        probed = all.size,
-                        total = all.size,
-                        healthy = Ranking.healthy(all).size,
-                        resultCount = found.size,
-                    )
-                }
-            } catch (_: CancellationException) {
-                setState { it.copy(phase = ScanPhase.STOPPED) }
-            } catch (_: Exception) {
-                setState { it.copy(phase = ScanPhase.ERROR) }
-            }
-        }
-    }
-
-    private fun stopScan() {
-        scanJob?.cancel()
-        scanJob = null
-        setState { it.copy(phase = ScanPhase.STOPPED) }
-    }
-
-    /**
-     * Re-ranks and redraws the results, coalescing bursts.
-     *
-     * Sorting runs on [Dispatchers.Default]; doing it inline on every hit stalled
-     * the main thread. Hits also arrive in bursts, so a short debounce collapses
-     * them into one sort plus one diff.
-     *
-     * @param immediate skip the debounce for user-driven changes, where any delay
-     *   reads as lag.
-     */
-    private fun resort(immediate: Boolean = false) {
-        resortJob?.cancel()
-        if (found.isEmpty()) {
-            resultAdapter.submit(emptyList())
-            return
-        }
-        val criterion = currentSort()
-        resortJob = lifecycleScope.launch {
-            if (!immediate) delay(RESORT_DEBOUNCE_MS)
-            val snapshot = found.toList()
-            val ranked = withContext(Dispatchers.Default) { Ranking.sort(snapshot, criterion) }
-            resultAdapter.submit(ranked)
-        }
-    }
+    override fun onIranModeChanged(enabled: Boolean) = viewModel.setIranMode(enabled)
 
     // endregion
 
@@ -330,7 +225,8 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
                     // setApplicationLocales to do it: on devices that ignore that
                     // call nothing would happen, and the language would appear
                     // stuck until the next launch. attachBaseContext applies the
-                    // new choice as the activity is rebuilt.
+                    // new choice as the activity is rebuilt, and the scan survives
+                    // because it lives in the ViewModel.
                     recreate()
                 }
             }
@@ -348,19 +244,8 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
 
     // endregion
 
-    override fun onDestroy() {
-        scanJob?.cancel()
-        resortJob?.cancel()
-        super.onDestroy()
-    }
-
     private companion object {
-        /**
-         * Debounce window for re-ranking while results stream in.
-         *
-         * Long enough to collapse a burst of hits into a single sort and diff,
-         * short enough that the list still feels live.
-         */
-        const val RESORT_DEBOUNCE_MS = 250L
+        /** Scan sizes offered in the dropdown, smallest first. */
+        val COUNT_OPTIONS = listOf(100, 200, 300, 500, 800)
     }
 }

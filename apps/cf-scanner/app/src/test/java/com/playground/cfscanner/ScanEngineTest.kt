@@ -189,8 +189,9 @@ class ScanEngineTest {
      */
     @Test
     fun unreachableAddressesAreNeverHealthy() = runBlocking {
-        val results = ScanEngine(fastFailConfig(count = 8, concurrency = 4, tries = 2))
+        val outcome = ScanEngine(fastFailConfig(count = 8, concurrency = 4, tries = 2))
             .scan(onProgress = { }, onResult = { })
+        val results = outcome.results
 
         assertTrue("expected some results", results.isNotEmpty())
         for (r in results) {
@@ -203,8 +204,9 @@ class ScanEngineTest {
     /** Healthy hits are never throttled away, so no successful IP is lost. */
     @Test
     fun resultsAreReturnedRankedBestFirst() = runBlocking {
-        val results = ScanEngine(fastFailConfig(count = 6, concurrency = 3))
+        val outcome = ScanEngine(fastFailConfig(count = 6, concurrency = 3))
             .scan(onProgress = { }, onResult = { })
+        val results = outcome.results
         val scores = results.map { it.score() }
         assertEquals("results must be in descending score order", scores.sortedDescending(), scores)
     }

@@ -68,7 +68,39 @@ data class ScanConfig(
      * scan is long-running, so refreshing a few times a second is plenty.
      */
     val progressThrottleMs: Long = 150,
-)
+) {
+    companion object {
+        /**
+         * Builds the config for a scan mode.
+         *
+         * These numbers used to sit inline in the Activity, which put tuning
+         * policy in the UI layer where it could not be tested. Keeping them here
+         * means the profile is one reviewable place, and the defaults above
+         * cannot silently disagree with what is actually used.
+         */
+        fun forMode(count: Int, iranMode: Boolean): ScanConfig = ScanConfig(
+            targetCount = count,
+            preferIranFriendlyRanges = iranMode,
+            // The idle hold proves an IP survives DPI, so keep it generous on a
+            // restricted network and quick otherwise.
+            idleHoldMs = if (iranMode) RESTRICTED_IDLE_HOLD_MS else STANDARD_IDLE_HOLD_MS,
+            testWebSocket = iranMode,
+            // Transfer a small payload on a restricted network: an IP that
+            // handshakes cleanly and then stalls on real data is worse than
+            // useless, and only moving bytes reveals it.
+            downloadBytes = if (iranMode) RESTRICTED_DOWNLOAD_BYTES else 0,
+        )
+
+        /** Long enough for a DPI reset to show up on a filtered network. */
+        const val RESTRICTED_IDLE_HOLD_MS = 2500
+
+        /** Enough to catch an obviously dead connection without slowing the scan. */
+        const val STANDARD_IDLE_HOLD_MS = 1200
+
+        /** Large enough to expose a stall, small enough not to lengthen the scan. */
+        const val RESTRICTED_DOWNLOAD_BYTES = 128 * 1024
+    }
+}
 
 /**
  * Live progress pushed to the UI.
@@ -85,39 +117,75 @@ data class ScanProgress(
 )
 
 /**
+ * Builds the real prober for a config.
+ *
+ * A top-level function rather than an inline lambda so it can serve as a default
+ * argument and stay overridable in tests.
+ */
+private fun defaultProber(config: ScanConfig): Prober = Prober(
+    timeoutMs = config.timeoutMs,
+    idleHoldMs = config.idleHoldMs,
+    testWebSocket = config.testWebSocket,
+    downloadBytes = config.downloadBytes,
+)
+
+/**
+ * The end of a scan.
+ *
+ * [everyProbeFailed] separates "the network is down" from "this network has no
+ * usable Cloudflare IP". Both produce zero healthy results, but the advice
+ * differs: one needs a connection, the other needs another attempt. Without this
+ * distinction a user with Wi-Fi off was told to try more IPs.
+ */
+data class ScanOutcome(
+    val results: List<ScanResult>,
+    val everyProbeFailed: Boolean,
+)
+
+/**
  * Drives the scan: samples candidate IPs, probes them concurrently, and reports
  * progress and results as they arrive.
  *
  * Probing happens on [Dispatchers.IO]; callbacks are always delivered on
  * [Dispatchers.Main] so callers can touch views directly and safely.
+ *
+ * @param proberFactory builds the prober for a config. Injectable so the engine's
+ *   own logic — neighbour budgets, deduplication, planned-total accounting — can
+ *   be tested with a fake prober instead of real sockets.
  */
-class ScanEngine(private val config: ScanConfig = ScanConfig()) {
+class ScanEngine(
+    private val config: ScanConfig = ScanConfig(),
+    private val proberFactory: (ScanConfig) -> Prober = ::defaultProber,
+) {
 
     private val rnd = Random()
+
+    /** Cloudflare's ranges, parsed once rather than per healthy hit. */
+    private val nets by lazy { CloudflareRanges.parseAll() }
 
     /**
      * Runs the scan.
      *
      * @param onProgress invoked on the main thread, rate-limited
      * @param onResult   invoked on the main thread for each healthy IP found
-     * @return every result gathered, healthy or not, ranked best-first
+     * @return the results gathered plus whether every probe failed outright
      */
     suspend fun scan(
         onProgress: suspend (ScanProgress) -> Unit,
         onResult: suspend (ScanResult) -> Unit,
-    ): List<ScanResult> {
-        val prober = Prober(
-            timeoutMs = config.timeoutMs,
-            idleHoldMs = config.idleHoldMs,
-            testWebSocket = config.testWebSocket,
-            downloadBytes = config.downloadBytes,
-        )
+    ): ScanOutcome {
+        val prober = proberFactory(config)
 
         val results = Collections.synchronizedList(mutableListOf<ScanResult>())
         val probed = AtomicInteger(0)
         val healthyCount = AtomicInteger(0)
         val seen = Collections.synchronizedSet(mutableSetOf<String>())
         val lastProgressAt = AtomicLong(0)
+
+        // Counts probes where not a single connection attempt succeeded. If that
+        // equals the number probed, the network itself is the problem rather than
+        // the addresses, and the UI can say so instead of suggesting more IPs.
+        val totalFailures = AtomicInteger(0)
 
         val candidates = withContext(Dispatchers.Default) { sampleIps(config.targetCount) }
 
@@ -146,8 +214,8 @@ class ScanEngine(private val config: ScanConfig = ScanConfig()) {
                         }
 
                         val r = probeAndReport(
-                            prober, ip, results, probed, healthyCount, planned,
-                            lastProgressAt, onProgress, onResult,
+                            prober, ip, results, probed, healthyCount, totalFailures,
+                            planned, lastProgressAt, onProgress, onResult,
                         )
 
                         // Neighbour expansion: Cloudflare edges cluster, so the
@@ -163,7 +231,8 @@ class ScanEngine(private val config: ScanConfig = ScanConfig()) {
                                 planned.incrementAndGet()
                                 probeAndReport(
                                     prober, neighbor, results, probed, healthyCount,
-                                    planned, lastProgressAt, onProgress, onResult,
+                                    totalFailures, planned, lastProgressAt,
+                                    onProgress, onResult,
                                 )
                             }
                         }
@@ -177,9 +246,19 @@ class ScanEngine(private val config: ScanConfig = ScanConfig()) {
             onProgress(ScanProgress(probed.get(), planned.get(), healthyCount.get(), ""))
         }
 
-        return withContext(Dispatchers.Default) {
-            Ranking.sort(results.toList(), SortBy.SCORE)
+        val gathered = results.toList()
+        val ranked = withContext(Dispatchers.Default) {
+            Ranking.sort(gathered, SortBy.SCORE)
         }
+        return ScanOutcome(
+            results = ranked,
+            // Every probe failing means no connection was established at all,
+            // which points at the network rather than the addresses. Guarded
+            // against the empty case so a cancelled scan is not reported as a
+            // connectivity failure.
+            everyProbeFailed = gathered.isNotEmpty() &&
+                totalFailures.get() >= gathered.size,
+        )
     }
 
     /** Atomically takes one unit of expansion budget; false when exhausted. */
@@ -197,6 +276,7 @@ class ScanEngine(private val config: ScanConfig = ScanConfig()) {
         results: MutableList<ScanResult>,
         probed: AtomicInteger,
         healthyCount: AtomicInteger,
+        totalFailures: AtomicInteger,
         planned: AtomicInteger,
         lastProgressAt: AtomicLong,
         onProgress: suspend (ScanProgress) -> Unit,
@@ -213,10 +293,14 @@ class ScanEngine(private val config: ScanConfig = ScanConfig()) {
         results.add(r)
         val done = probed.incrementAndGet()
 
+        // A probe where no attempt ever connected. Distinguishes a dead network
+        // from a network where Cloudflare simply is not reachable on that IP.
+        if (r.successes == 0) totalFailures.incrementAndGet()
+
         // A healthy hit is rare and important, so it is never throttled away.
         if (r.isHealthy()) {
             healthyCount.incrementAndGet()
-            withContext(Dispatchers.Main) { onResult(r) }
+            deliver { onResult(r) }
         }
 
         // Progress is throttled: this fires hundreds of times per second
@@ -227,12 +311,29 @@ class ScanEngine(private val config: ScanConfig = ScanConfig()) {
         val isLast = done >= total
         if (isLast || now - previous >= config.progressThrottleMs) {
             if (lastProgressAt.compareAndSet(previous, now)) {
-                withContext(Dispatchers.Main) {
-                    onProgress(ScanProgress(done, total, healthyCount.get(), ip))
-                }
+                deliver { onProgress(ScanProgress(done, total, healthyCount.get(), ip)) }
             }
         }
         return r
+    }
+
+    /**
+     * Runs a UI callback on the main thread, absorbing its failures.
+     *
+     * These callbacks touch views, so they can throw for reasons that have
+     * nothing to do with scanning — an adapter updated as the Activity finishes,
+     * for instance. Unguarded, such an exception propagated out of the enclosing
+     * `coroutineScope` and cancelled every other probe, killing the whole scan
+     * because one UI update went wrong.
+     */
+    private suspend inline fun deliver(crossinline block: suspend () -> Unit) {
+        try {
+            withContext(Dispatchers.Main) { block() }
+        } catch (ce: CancellationException) {
+            throw ce
+        } catch (_: Exception) {
+            // A failed UI update must not stop the scan.
+        }
     }
 
     /**
@@ -305,7 +406,6 @@ class ScanEngine(private val config: ScanConfig = ScanConfig()) {
      */
     private fun neighborsOf(ip: String, span: Int = 2): List<String> {
         val base = CloudflareRanges.ipToLong(ip)
-        val nets = CloudflareRanges.parseAll()
         val out = mutableListOf<String>()
         for (delta in -span..span) {
             if (delta == 0) continue
