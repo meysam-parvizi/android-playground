@@ -54,6 +54,15 @@ class HeaderAdapter(
 
     private var boundHolder: Holder? = null
 
+    /**
+     * True while the adapter is writing the switch itself.
+     *
+     * Distinguishes a programmatic write from a user action. The previous guard
+     * used `View.isPressed`, which is only set by a physical touch and therefore
+     * ignored TalkBack, keyboard and D-pad activations entirely.
+     */
+    private var suppressSwitchCallback = false
+
     class Holder(view: View) : RecyclerView.ViewHolder(view) {
         val statusText: TextView = view.findViewById(R.id.statusText)
         val subStatusText: TextView = view.findViewById(R.id.subStatusText)
@@ -113,8 +122,14 @@ class HeaderAdapter(
 
         holder.scanButton.setOnClickListener { callbacks.onScanToggle() }
         holder.copyButton.setOnClickListener { callbacks.onCopy() }
-        holder.iranModeSwitch.setOnCheckedChangeListener { button, checked ->
-            if (button.isPressed) callbacks.onIranModeChanged(checked)
+        holder.iranModeSwitch.setOnCheckedChangeListener { _, checked ->
+            // Guarded by a flag rather than by View.isPressed. isPressed is only
+            // true for a physical touch, so a TalkBack double-tap, a keyboard or
+            // D-pad activation, or any accessibility ACTION_CLICK moved the
+            // switch visually but never reached this callback — the setting
+            // silently snapped back on the next bind, leaving the option
+            // unreachable for screen-reader users.
+            if (!suppressSwitchCallback) callbacks.onIranModeChanged(checked)
         }
 
         holder.dropdownsReady = true
@@ -130,7 +145,11 @@ class HeaderAdapter(
         sortLabels.getOrNull(s.sortIndex)?.let { holder.sortInput.setText(it, false) }
 
         if (holder.iranModeSwitch.isChecked != s.iranMode) {
+            // Suppressed so this programmatic write is not mistaken for the user
+            // toggling the switch, which would echo straight back into the state.
+            suppressSwitchCallback = true
             holder.iranModeSwitch.isChecked = s.iranMode
+            suppressSwitchCallback = false
         }
 
         holder.statusText.setText(statusTextRes(s.phase))

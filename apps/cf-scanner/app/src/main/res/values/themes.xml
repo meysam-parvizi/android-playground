@@ -169,6 +169,15 @@
         <item name="ensureMinTouchTargetSize">false</item>
         <item name="android:clickable">false</item>
         <item name="android:checkable">false</item>
+        <!--
+          Chips are labels, not controls. Chip extends CompoundButton, which is
+          focusable by default, so clickable="false" alone still left a screen
+          reader stopping on all six chips of every row — each announcing a value
+          and offering nothing to do. The row itself carries a combined
+          description instead, so the whole result is one stop.
+        -->
+        <item name="android:focusable">false</item>
+        <item name="android:importantForAccessibility">no</item>
     </style>
 
 </resources>

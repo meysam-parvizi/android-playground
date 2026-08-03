@@ -1,5 +1,6 @@
 package com.playground.cfscanner
 
+import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.drawable.GradientDrawable
 import android.view.LayoutInflater
@@ -37,6 +38,15 @@ class ResultAdapter(
 
         /** Cached so the default chip colour is not re-read on every bind. */
         var defaultChipTextColor: Int = 0
+
+        /**
+         * The chip background before any per-result tint.
+         *
+         * Captured so a recycled WebSocket chip can be returned to its unstyled
+         * look; without it the green highlight persisted onto rows that never
+         * carried a WebSocket.
+         */
+        var defaultChipBackground: ColorStateList? = null
     }
 
     /**
@@ -60,7 +70,10 @@ class ResultAdapter(
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
         val v = LayoutInflater.from(parent.context).inflate(R.layout.item_result, parent, false)
-        return Holder(v).also { it.defaultChipTextColor = it.chipPing.currentTextColor }
+        return Holder(v).also {
+            it.defaultChipTextColor = it.chipPing.currentTextColor
+            it.defaultChipBackground = it.chipWs.chipBackgroundColor
+        }
     }
 
     override fun onBindViewHolder(holder: Holder, position: Int) {
@@ -109,9 +122,53 @@ class ResultAdapter(
             holder.chipWs.setTextColor(ctx.getColor(R.color.grade_excellent))
             holder.chipWs.chipBackgroundColor =
                 ColorStateList.valueOf(ctx.getColor(R.color.grade_excellent_bg))
+        } else {
+            // Reset explicitly: without this the green tint stayed on a recycled
+            // view and rows that never carried a WebSocket inherited the styling
+            // of whichever row previously used that holder.
+            holder.chipWs.setTextColor(holder.defaultChipTextColor)
+            holder.chipWs.chipBackgroundColor = holder.defaultChipBackground
         }
 
+        // One combined description for the whole row. Each chip is excluded from
+        // accessibility (see Widget.CfScanner.MetricChip), so a screen reader
+        // makes a single stop per result that announces everything and offers the
+        // copy action, instead of six stops that announce a value and do nothing.
+        holder.itemView.contentDescription = describe(ctx, r, position + 1)
+
         holder.itemView.setOnClickListener { onRowClick(r) }
+    }
+
+    /**
+     * Builds the spoken description of a result row.
+     *
+     * Reads as a sentence rather than a list of labels, and includes only the
+     * metrics actually shown, so the announcement matches the visible row.
+     */
+    private fun describe(ctx: Context, r: ScanResult, rank: Int): CharSequence = buildString {
+        append(ctx.getString(R.string.a11y_result_rank, Format.number(rank)))
+        append(", ")
+        append(Format.ip(r.ip))
+        append(", ")
+        append(ctx.getString(R.string.score_and_grade, Format.number(r.score()), ctx.getString(r.gradeRes())))
+        append(", ")
+        append(ctx.getString(R.string.chip_ping, Format.millis(r.avgMs())))
+        append(", ")
+        append(ctx.getString(R.string.chip_jitter, Format.millis(r.jitterMs())))
+        append(", ")
+        append(ctx.getString(R.string.chip_loss, Format.percent(r.loss().toInt())))
+        if (r.colo.isNotEmpty()) {
+            append(", ")
+            append(ctx.getString(R.string.chip_colo, r.colo))
+        }
+        if (r.throughputBps > 0) {
+            append(", ")
+            append(ctx.getString(R.string.chip_speed, Format.speed(r.throughputBps)))
+        }
+        if (r.wsOk) {
+            append(", ")
+            append(ctx.getString(R.string.chip_ws))
+        }
     }
 
     override fun getItemCount(): Int = items.size

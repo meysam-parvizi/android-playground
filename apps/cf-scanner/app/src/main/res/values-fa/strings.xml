@@ -122,4 +122,8 @@
     <string name="action_language">زبان</string>
     <string name="language_dialog_title">زبان</string>
     <string name="language_changed">زبان به %1$s تغییر کرد</string>
+
+    <!-- Spoken labels; not shown on screen. -->
+    <string name="a11y_result_rank">رتبه %1$s</string>
+    <string name="a11y_scan_progress">وضعیت اسکن</string>
 </resources>

@@ -242,9 +242,9 @@ class ScanEngine(
         }
 
         // Final tick so the UI never ends stuck mid-way, and so probed == total.
-        withContext(Dispatchers.Main) {
-            onProgress(ScanProgress(probed.get(), planned.get(), healthyCount.get(), ""))
-        }
+        // Guarded like every other callback: a failure here would otherwise
+        // propagate out of scan() and be reported as a scan error.
+        deliver { onProgress(ScanProgress(probed.get(), planned.get(), healthyCount.get(), "")) }
 
         val gathered = results.toList()
         val ranked = withContext(Dispatchers.Default) {

@@ -43,6 +43,7 @@
                         android:id="@+id/statusText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:accessibilityLiveRegion="polite"
                         android:text="@string/status_idle"
                         android:textAppearance="@style/TextAppearance.CfScanner.BodyMedium"
                         android:textColor="?attr/colorOnSurface" />

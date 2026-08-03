@@ -83,4 +83,8 @@
     <string name="action_language">Language</string>
     <string name="language_dialog_title">Language</string>
     <string name="language_changed">Language changed to %1$s</string>
+
+    <!-- Spoken labels; not shown on screen. -->
+    <string name="a11y_result_rank">Rank %1$s</string>
+    <string name="a11y_scan_progress">Scan status</string>
 </resources>
