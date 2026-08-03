@@ -1,18 +1,10 @@
 package com.playground.cfscanner
 
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
-import java.io.BufferedReader
-import java.io.InputStreamReader
+import java.io.InputStream
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.SocketException
+import java.net.SocketTimeoutException
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import javax.net.ssl.SNIHostName
@@ -22,6 +14,14 @@ import javax.net.ssl.SSLSocketFactory
 import javax.net.ssl.X509TrustManager
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 
 /**
  * Probes a single IP to decide whether it is a genuinely usable Cloudflare edge.
@@ -230,38 +230,69 @@ open class Prober(
                 flush()
             }
 
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
-            val statusLine = reader.readLine() ?: return
-            statusLine.split(" ").getOrNull(1)?.toIntOrNull()?.let { result.httpStatus = it }
+            val input = socket.getInputStream()
 
-            // Collect Server-Timing while walking the headers. The response
-            // carries it more than once, so every occurrence is kept.
-            val timings = mutableListOf<String>()
-            while (true) {
-                val line = reader.readLine() ?: break
-                if (line.isEmpty()) break
-                val colon = line.indexOf(':')
-                if (colon > 0 && line.substring(0, colon).trim().equals("server-timing", true)) {
-                    timings.add(line.substring(colon + 1).trim())
-                }
-            }
-            if (timings.isNotEmpty()) {
-                ServerTimingParser.parse(timings).takeIf { it.hasAnything }?.let { result.edge = it }
+            // Shared reader: this was hand-rolled differently here and in
+            // probeDownload, and only the other copy bounded its input. The
+            // unbounded loop here could be held open indefinitely by a peer
+            // trickling one header line at a time, since each individual read
+            // stayed under the socket timeout.
+            val head = HttpHeadReader.read(input)
+            if (head.status > 0) result.httpStatus = head.status
+            if (head.serverTimings.isNotEmpty()) {
+                ServerTimingParser.parse(head.serverTimings)
+                    .takeIf { it.hasAnything }
+                    ?.let { result.edge = it }
             }
 
-            // Body is the trace key=value list; find colo.
-            var guard = 0
-            while (guard++ < 40) {
-                val line = reader.readLine() ?: break
-                val trimmed = line.trim()
-                if (trimmed.startsWith("colo=")) {
-                    result.colo = trimmed.removePrefix("colo=").trim().uppercase()
-                    break
-                }
-            }
+            // Body is the trace key=value list; find colo. Read to the end rather
+            // than stopping at the match: the idle-hold check that follows tests
+            // whether the peer tears the connection down, and leftover unread
+            // bytes would satisfy it immediately without ever exercising the
+            // connection.
+            result.colo = readColo(input)
         } catch (_: Exception) {
             // Leave httpStatus/colo unset; isHealthy() will reject the IP.
         }
+    }
+
+    /**
+     * Reads the `/cdn-cgi/trace` body and returns the `colo=` value.
+     *
+     * Drains the whole body rather than returning at the match. The idle hold
+     * that follows checks whether the peer tears the connection down, and it does
+     * that by attempting a read: if unread response bytes were still buffered,
+     * that read would succeed immediately on stale data and report the connection
+     * healthy without ever testing it. Since this is the decisive check for DPI
+     * interference, leaving bytes behind quietly defeated it.
+     *
+     * Bounded so a peer that never closes cannot hold the probe open; the trace
+     * response is a few hundred bytes.
+     */
+    private fun readColo(input: InputStream): String {
+        val body = StringBuilder()
+        var read = 0
+        val buf = ByteArray(512)
+        while (read < MAX_TRACE_BODY_BYTES) {
+            val n = try {
+                input.read(buf)
+            } catch (_: SocketTimeoutException) {
+                // The peer sent everything and is holding the connection open;
+                // that is a complete body, not a failure.
+                break
+            }
+            if (n <= 0) break
+            read += n
+            body.append(String(buf, 0, n, Charsets.US_ASCII))
+        }
+
+        return body.lineSequence()
+            .map { it.trim() }
+            .firstOrNull { it.startsWith("colo=") }
+            ?.removePrefix("colo=")
+            ?.trim()
+            ?.uppercase()
+            .orEmpty()
     }
 
     /**
@@ -311,7 +342,7 @@ open class Prober(
             val b = socket.getInputStream().read()
             // Unexpected data is fine; EOF is not.
             b != -1
-        } catch (_: java.net.SocketTimeoutException) {
+        } catch (_: SocketTimeoutException) {
             true // silence == still connected
         } catch (_: Exception) {
             false
@@ -355,11 +386,11 @@ open class Prober(
                     write(request.toByteArray())
                     flush()
                 }
-                val statusLine = BufferedReader(InputStreamReader(tls.getInputStream())).readLine()
-                    ?: return@withContext
+                // Shared reader rather than a third hand-rolled status parse.
+                val code = HttpHeadReader.read(tls.getInputStream()).status
+                if (code == 0) return@withContext
                 // 101 = upgraded. 4xx still proves the edge parsed our request and
                 // is reachable through DPI, which is the property we care about.
-                val code = statusLine.split(" ").getOrNull(1)?.toIntOrNull() ?: return@withContext
                 result.wsOk = code == 101 || code in 400..499
             } catch (ce: CancellationException) {
                 throw ce
@@ -411,34 +442,9 @@ open class Prober(
                 }
 
                 val input = tls.getInputStream()
-                // Read past the headers, capturing Server-Timing on the way: this
-                // endpoint reports richer TCP telemetry than the trace request.
-                val timings = mutableListOf<String>()
-                val headerLine = StringBuilder()
-                var blankSeen = false
-                var headerBytes = 0
-                while (!blankSeen && headerBytes < 16_384) {
-                    val b = input.read()
-                    if (b == -1) break
-                    headerBytes++
-                    val c = b.toChar()
-                    if (c == '\n') {
-                        val line = headerLine.toString().trim()
-                        if (line.isEmpty()) {
-                            blankSeen = true
-                        } else {
-                            val colon = line.indexOf(':')
-                            if (colon > 0 &&
-                                line.substring(0, colon).trim().equals("server-timing", true)
-                            ) {
-                                timings.add(line.substring(colon + 1).trim())
-                            }
-                        }
-                        headerLine.setLength(0)
-                    } else if (c != '\r') {
-                        headerLine.append(c)
-                    }
-                }
+                // Same shared reader as verifyEdge; this endpoint reports richer
+                // TCP telemetry than the trace request.
+                val timings = HttpHeadReader.read(input).serverTimings
 
                 // Drain the body and measure how fast it arrived.
                 val buf = ByteArray(8 * 1024)
@@ -501,5 +507,10 @@ open class Prober(
             i += 3
         }
         return sb.toString()
+    }
+
+    private companion object {
+        /** The trace response is a few hundred bytes; this is a safety ceiling. */
+        const val MAX_TRACE_BODY_BYTES = 8_192
     }
 }
