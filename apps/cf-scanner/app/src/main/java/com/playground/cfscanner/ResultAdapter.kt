@@ -2,7 +2,7 @@ package com.playground.cfscanner
 
 import android.content.Context
 import android.graphics.drawable.GradientDrawable
-import android.text.SpannableString
+import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.view.LayoutInflater
@@ -11,7 +11,6 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.chip.Chip
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -32,8 +31,11 @@ class ResultAdapter(
     class Holder(view: View) : RecyclerView.ViewHolder(view) {
         val rank: TextView = view.findViewById(R.id.rowRank)
         val ip: TextView = view.findViewById(R.id.rowIp)
+        val context: TextView = view.findViewById(R.id.rowContext)
         val score: TextView = view.findViewById(R.id.rowScore)
-        val metrics: TextView = view.findViewById(R.id.rowMetrics)
+        val ping: TextView = view.findViewById(R.id.rowPing)
+        val jitter: TextView = view.findViewById(R.id.rowJitter)
+        val loss: TextView = view.findViewById(R.id.rowLoss)
     }
 
     /**
@@ -88,15 +90,47 @@ class ResultAdapter(
         // must stay ASCII and its ordering must survive the RTL layout.
         holder.ip.text = Format.ip(r.ip)
 
-        holder.score.text =
-            ctx.getString(R.string.score_and_grade, Format.number(score), ctx.getString(r.gradeRes()))
+        // WebSocket support is a pass/fail capability rather than a measurement,
+        // so it sits with the grade instead of competing for room among the
+        // metrics. Spelled out rather than abbreviated to "WS", which would be
+        // jargon in an app that otherwise states things plainly.
+        val grade = ctx.getString(r.gradeRes())
+        holder.score.text = if (r.wsOk) {
+            ctx.getString(R.string.score_grade_ws, Format.number(score), grade)
+        } else {
+            ctx.getString(R.string.score_and_grade, Format.number(score), grade)
+        }
         holder.score.setTextColor(colour)
 
-        // Metrics on one line. Previously six Chip views, which cost six
-        // inflations and a flow-layout measure pass per row, announced six
-        // useless stops to a screen reader, and were never interactive.
-        val metrics = metricsLine(ctx, r)
-        holder.metrics.text = metrics
+        // Split by kind: where the edge is and what it can carry sits beside the
+        // address, while the three numbers the ranking is built from get their
+        // own line. Putting all five in one run needed roughly 460dp against 248
+        // available, so it wrapped and hid values.
+        val context = contextLine(r)
+        holder.context.text = context
+        holder.context.visibility = if (context.isEmpty()) View.GONE else View.VISIBLE
+
+        // Three fixed columns rather than one run of text. Inline, the fields
+        // shift with every change in digit count, so comparing jitter across
+        // rows means locating the label again on each line.
+        val bright = themeColour(ctx, com.google.android.material.R.attr.colorOnSurface)
+        holder.ping.text = metric(
+            ctx.getString(R.string.chip_ping, Format.millis(r.avgMs())),
+            Format.millis(r.avgMs()),
+            bright,
+        )
+        holder.jitter.text = metric(
+            ctx.getString(R.string.chip_jitter, Format.millis(r.jitterMs())),
+            Format.millis(r.jitterMs()),
+            bright,
+        )
+        val lossValue = Format.percent(r.loss().toInt())
+        holder.loss.text = metric(
+            ctx.getString(R.string.chip_loss, lossValue),
+            lossValue,
+            // Loss is the metric worth flagging; the others stay neutral.
+            if (r.loss() > 0) ctx.getColor(R.color.grade_weak) else bright,
+        )
 
         // The row is one accessibility stop announcing everything, rather than
         // a card plus six focusable chips that each said a value and did nothing.
@@ -107,7 +141,21 @@ class ResultAdapter(
             append(", ")
             append(holder.score.text)
             append(", ")
-            append(metrics)
+            append(holder.ping.text)
+            append(", ")
+            append(holder.jitter.text)
+            append(", ")
+            append(holder.loss.text)
+            // The grade carries a ⚡ for WebSocket support, which a screen
+            // reader does not announce, so it is stated in words here.
+            if (r.wsOk) {
+                append(", ")
+                append(ctx.getString(R.string.chip_ws))
+            }
+            if (context.isNotEmpty()) {
+                append(", ")
+                append(context)
+            }
         }
 
         holder.itemView.setOnClickListener { onRowClick(r) }
@@ -128,41 +176,48 @@ class ResultAdapter(
     }
 
     /**
-     * Builds the single metrics line shown under the address.
+     * Where this edge is and what it can carry.
      *
-     * Only what was actually measured appears: colo, throughput and WebSocket are
-     * omitted when absent rather than rendered blank, so the line never ends with
-     * a dangling separator.
-     *
-     * The separator is a spaced en dash rather than a middle dot. A middle dot
-     * next to Persian digits reads as a zero — the same reason it was removed
-     * from the score line earlier.
+     * Context rather than measurement, so it sits beside the address and stays
+     * dim. Absent values are omitted entirely rather than rendered empty.
      */
-    private fun metricsLine(ctx: Context, r: ScanResult): CharSequence {
-        val parts = mutableListOf<String>()
-        parts += ctx.getString(R.string.chip_ping, Format.millis(r.avgMs()))
-        parts += ctx.getString(R.string.chip_jitter, Format.millis(r.jitterMs()))
+    /**
+     * The fourth column: where the edge answered from.
+     *
+     * Throughput used to appear here too, but "AMS · Speed 2.1 Mbit" needs about
+     * 110dp in a 62dp column, so it truncated the location it sat beside. It is
+     * also the least-consulted number on the row, and it already does its real
+     * work as a gate: an IP that stalls mid-transfer is rejected and never
+     * appears in the list at all. The About screen explains that.
+     */
+    private fun contextLine(r: ScanResult): CharSequence = r.colo
 
-        val lossText = ctx.getString(R.string.chip_loss, Format.percent(r.loss().toInt()))
-        val lossStart = parts.sumOf { it.length + SEPARATOR.length }
-        parts += lossText
+    /** Resolves a colour from the current theme so it follows light/dark. */
+    private fun themeColour(ctx: Context, attr: Int): Int {
+        val typed = android.util.TypedValue()
+        ctx.theme.resolveAttribute(attr, typed, true)
+        return typed.data
+    }
 
-        if (r.colo.isNotEmpty()) parts += ctx.getString(R.string.chip_colo, r.colo)
-        if (r.throughputBps > 0) {
-            parts += ctx.getString(R.string.chip_speed, Format.speed(r.throughputBps))
-        }
-        if (r.wsOk) parts += ctx.getString(R.string.chip_ws)
-
-        val line = parts.joinToString(SEPARATOR)
-        if (r.loss() <= 0) return line
-
-        // Colour only the loss segment. Tinting the whole line would imply the
-        // ping and jitter are also bad, and loss is the metric worth flagging.
-        return SpannableString(line).apply {
+    /**
+     * Formats one metric with only its value brightened.
+     *
+     * The label stays in the dim column colour and the number is lifted to the
+     * surface colour — a 1.77x luminance step. Without it "Ping 41" reads as one
+     * undifferentiated blob at label size.
+     *
+     * The value is located inside the already-formatted string rather than
+     * assumed to sit at the end, so this holds for any language whose phrasing
+     * puts the number first.
+     */
+    private fun metric(formatted: String, value: String, colour: Int): CharSequence {
+        val at = formatted.lastIndexOf(value)
+        if (at < 0) return formatted
+        return SpannableStringBuilder(formatted).apply {
             setSpan(
-                ForegroundColorSpan(ctx.getColor(R.color.grade_weak)),
-                lossStart,
-                lossStart + lossText.length,
+                ForegroundColorSpan(colour),
+                at,
+                at + value.length,
                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
             )
         }
@@ -228,7 +283,7 @@ class ResultAdapter(
          * Persian digits a middle dot sits at the same height as ۰ and is easily
          * read as one. The score line dropped it for the same reason.
          */
-        const val SEPARATOR = "  –  "
+        const val SEPARATOR = "   ·   "
 
         /**
          * Marks a rebind that only needs the rank badge redrawn.

@@ -91,4 +91,8 @@
     <!-- Shown in the toolbar. Separate from app_name, which labels the
          launcher icon and must stay short enough not to be truncated. -->
     <string name="screen_title">Cloudflare Clean IP Scanner</string>
+
+    <!-- Same as score_and_grade, with a mark for WebSocket support. The
+         glyph is language-neutral, so all three files share it. -->
+    <string name="score_grade_ws">%2$s\u00A0\u00A0%1$s\u00A0⚡</string>
 </resources>

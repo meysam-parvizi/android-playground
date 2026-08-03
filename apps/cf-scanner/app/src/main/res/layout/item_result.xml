@@ -2,15 +2,22 @@
 <!--
   One result row.
 
-  Flattened from four nested LinearLayouts plus a ChipGroup to a single
-  ConstraintLayout. The ChipGroup was the expensive part: a flow layout measures
-  all its children and then re-measures any that wrap, and this row is bound
-  hundreds of times while a scan reorders the list.
+  Two lines with a fixed shape:
 
-  The chips are gone entirely. They were labels, not controls — never clickable,
-  and excluded from accessibility because six focusable stops per row made the
-  list unusable with a screen reader. A single styled line carries the same
-  information for one view instead of six inflations.
+    address · where it is                          score
+    ping        jitter        loss
+
+  The metrics sit in three equal columns rather than in one run of text. Written
+  inline as "Ping 41 · Jitter 3 · Loss 0%" the fields shift horizontally with
+  every change in digit count, so comparing jitter across rows means finding the
+  label again on each line. Equal-weight columns line the values up down the
+  whole list, which is the point of a ranked table.
+
+  Flattened from four nested LinearLayouts plus a ChipGroup. The ChipGroup was a
+  flow layout — it measured all six children and re-measured any that wrapped —
+  in a row that binds hundreds of times while a scan reorders the list. The chips
+  were also never interactive, yet each was a screen-reader stop announcing a
+  value and offering nothing to do.
 -->
 <com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -24,7 +31,7 @@
     app:cardElevation="0dp"
     app:strokeWidth="@dimen/space_hairline"
     app:strokeColor="?attr/colorOutline"
-    app:cardBackgroundColor="?attr/colorSurface"
+    app:cardBackgroundColor="?attr/colorSurfaceVariant"
     app:rippleColor="?attr/colorPrimary">
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -56,7 +63,7 @@
         <!-- The address: monospace and always LTR, since it is copied verbatim. -->
         <TextView
             android:id="@+id/rowIp"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="@dimen/space_m"
             android:textAppearance="@style/TextAppearance.CfScanner.Mono"
@@ -78,29 +85,74 @@
             android:textAppearance="@style/TextAppearance.CfScanner.LabelLarge"
             android:textStyle="bold"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="@id/rowIp"
-            app:layout_constraintBottom_toBottomOf="@id/rowIp" />
+            app:layout_constraintBaseline_toBaselineOf="@id/rowIp" />
 
         <!--
-          Metrics on one line: "ping 41 · jitter 3 · loss 0% · VIE".
-          Built in the adapter so absent values are omitted rather than shown
-          empty, and so the separator never appears at either end.
+          Three equal columns. Weighted rather than sized, so they stay aligned
+          across languages and screen widths without any per-locale tuning.
         -->
         <TextView
-            android:id="@+id/rowMetrics"
+            android:id="@+id/rowPing"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="@dimen/space_m"
-            android:layout_marginTop="@dimen/space_xs"
+            android:layout_marginTop="@dimen/space_s"
             android:textAppearance="@style/TextAppearance.CfScanner.Label"
             android:textColor="?attr/colorOnSurfaceVariant"
-            android:maxLines="2"
+            android:singleLine="true"
             android:ellipsize="end"
-            android:lineSpacingExtra="2dp"
             app:layout_constraintStart_toEndOf="@id/rowRank"
-            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/rowJitter"
             app:layout_constraintTop_toBottomOf="@id/rowIp"
-            app:layout_constraintBottom_toBottomOf="parent" />
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintHorizontal_weight="1"
+            app:layout_constraintHorizontal_chainStyle="spread_inside" />
+
+        <TextView
+            android:id="@+id/rowJitter"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:textAppearance="@style/TextAppearance.CfScanner.Label"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:singleLine="true"
+            android:ellipsize="end"
+            app:layout_constraintStart_toEndOf="@id/rowPing"
+            app:layout_constraintEnd_toStartOf="@id/rowLoss"
+            app:layout_constraintTop_toTopOf="@id/rowPing"
+            app:layout_constraintHorizontal_weight="1" />
+
+        <TextView
+            android:id="@+id/rowLoss"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:textAppearance="@style/TextAppearance.CfScanner.Label"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:singleLine="true"
+            android:ellipsize="end"
+            app:layout_constraintStart_toEndOf="@id/rowJitter"
+            app:layout_constraintEnd_toStartOf="@id/rowContext"
+            app:layout_constraintTop_toTopOf="@id/rowPing"
+            app:layout_constraintHorizontal_weight="1" />
+
+        <!--
+          Where the edge is, as a fourth column rather than on the top line.
+          Address, location and score together needed about 273dp of the 248dp
+          available on a 360dp phone, so something had to move: three fields on
+          one line simply does not fit, and shortening the text further only
+          hid information.
+        -->
+        <TextView
+            android:id="@+id/rowContext"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:textAppearance="@style/TextAppearance.CfScanner.Label"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:singleLine="true"
+            android:ellipsize="end"
+            app:layout_constraintStart_toEndOf="@id/rowLoss"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/rowPing"
+            app:layout_constraintHorizontal_weight="1" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </com.google.android.material.card.MaterialCardView>
