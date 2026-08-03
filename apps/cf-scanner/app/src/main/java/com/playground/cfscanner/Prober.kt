@@ -85,6 +85,30 @@ open class Prober(
     }
 
     /**
+     * Wraps [socket] in a TLS layer with [sni] as the server name.
+     *
+     * Returned rather than assigned inside an `apply` block. The previous shape
+     * — `tls = (createSocket(...) as SSLSocket).apply { ... startHandshake() }` —
+     * only assigned `tls` once the whole block succeeded, so a failing handshake
+     * left the SSLSocket unreferenced and the `finally` clause closed only the
+     * underlying socket. Since `autoClose = false` is passed, that does not close
+     * the TLS layer, which leaked steadily on a filtered network where handshake
+     * failures are the norm.
+     *
+     * Callers must assign the result to their `tls` variable immediately:
+     *
+     *     val s = openTls(socket, sni, port)
+     *     tls = s
+     *     s.startHandshake()
+     */
+    private fun openTls(socket: Socket, sni: String, port: Int): SSLSocket {
+        val s = probeSocketFactory.createSocket(socket, sni, port, false) as SSLSocket
+        s.soTimeout = timeoutMs
+        s.sslParameters = s.sslParameters.apply { serverNames = listOf(SNIHostName(sni)) }
+        return s
+    }
+
+    /**
      * Runs [tries] staged attempts against [ip] and returns the aggregate.
      *
      * Suspending and cooperatively cancellable: pressing Stop aborts in-flight
@@ -119,13 +143,10 @@ open class Prober(
                     }
 
                     val sni = sniPool[(attempt + rnd.nextInt(sniPool.size)) % sniPool.size]
-                    tls = (probeSocketFactory.createSocket(socket, sni, port, false) as SSLSocket).apply {
-                        soTimeout = timeoutMs
-                        sslParameters = sslParameters.apply {
-                            serverNames = listOf(SNIHostName(sni))
-                        }
-                        startHandshake()
-                    }
+                    // Assigned before the handshake so `finally` can always close it.
+                    val secure = openTls(socket, sni, port)
+                    tls = secure
+                    secure.startHandshake()
                     result.tlsOk = true
 
                     val totalMs = (System.nanoTime() - started) / 1_000_000
@@ -314,11 +335,10 @@ open class Prober(
                 socket = Socket()
                 socket.soTimeout = timeoutMs
                 connectCancellable(socket, InetSocketAddress(ip, port))
-                tls = (probeSocketFactory.createSocket(socket, sni, port, false) as SSLSocket).apply {
-                    soTimeout = timeoutMs
-                    sslParameters = sslParameters.apply { serverNames = listOf(SNIHostName(sni)) }
-                    startHandshake()
-                }
+                // Assigned before the handshake so `finally` can always close it.
+                val secure = openTls(socket, sni, port)
+                tls = secure
+                secure.startHandshake()
 
                 val keyBytes = ByteArray(16).also { rnd.nextBytes(it) }
                 val key = base64(keyBytes)
@@ -372,11 +392,10 @@ open class Prober(
                 socket = Socket()
                 socket.soTimeout = timeoutMs
                 connectCancellable(socket, InetSocketAddress(ip, port))
-                tls = (probeSocketFactory.createSocket(socket, sni, port, false) as SSLSocket).apply {
-                    soTimeout = timeoutMs
-                    sslParameters = sslParameters.apply { serverNames = listOf(SNIHostName(sni)) }
-                    startHandshake()
-                }
+                // Assigned before the handshake so `finally` can always close it.
+                val secure = openTls(socket, sni, port)
+                tls = secure
+                secure.startHandshake()
 
                 val request = buildString {
                     append("GET /__down?bytes=$downloadBytes HTTP/1.1\r\n")
