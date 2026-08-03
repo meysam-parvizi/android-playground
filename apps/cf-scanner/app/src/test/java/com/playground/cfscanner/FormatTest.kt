@@ -3,6 +3,8 @@ package com.playground.cfscanner
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.After
+import org.junit.Before
 import org.junit.Test
 
 /**
@@ -19,6 +21,21 @@ class FormatTest {
 
     private fun stripIsolates(s: String) =
         s.replace(Format.FSI.toString(), "").replace(Format.PDI.toString(), "")
+
+    /**
+     * Formatting depends on the selected language, and Format holds that as
+     * state, so each test pins it explicitly. Without this, a test's result
+     * would depend on which test ran before it.
+     */
+    @Before
+    fun usePersian() {
+        Format.setLocale(LocaleRegistry.byTag("fa")!!)
+    }
+
+    @After
+    fun restoreDefault() {
+        Format.setLocale(LocaleRegistry.DEFAULT)
+    }
 
     private val persianDigitRange = '\u06F0'..'\u06F9'
 

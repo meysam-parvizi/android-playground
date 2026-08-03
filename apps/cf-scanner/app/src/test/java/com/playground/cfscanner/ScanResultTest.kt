@@ -133,7 +133,10 @@ class ScanResultTest {
         )
 
         // And they must land in different grade bands, not all read "عالی".
-        val grades = listOf(excellent, decent, marginal, weak).map { it.grade() }
+        // Compared as resource ids: the grade labels now live in strings.xml so
+        // they follow the selected language, and ids are comparable without a
+        // Context, which keeps this a plain unit test.
+        val grades = listOf(excellent, decent, marginal, weak).map { it.gradeRes() }
         assertEquals("each tier should get its own grade", grades.size, grades.distinct().size)
     }
 

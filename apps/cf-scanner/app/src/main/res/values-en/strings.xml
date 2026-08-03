@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  English translation.
+
+  Every key in values/strings.xml must appear here. StringResourceParityTest
+  fails the build if any is missing, so a partially translated language cannot
+  ship and silently fall back to Persian mid-screen.
+
+  Directional isolate escapes (\u2068 … \u2069) are kept around Latin terms even
+  though English is left-to-right: they are invisible in an LTR layout, and
+  keeping them means the two files stay structurally identical and can be diffed
+  against each other.
+-->
+<resources>
+    <string name="app_name">CF Scanner</string>
+
+    <string name="section_settings">Scan settings</string>
+    <string name="label_count">How many IPs to test?</string>
+    <string name="label_count_helper">Chosen at random from Cloudflare\'s ranges</string>
+    <string name="label_sort">Sort results by</string>
+    <string name="label_iran_mode">Restricted network mode</string>
+    <string name="label_iran_mode_hint">Tests connection stability and \u2068WebSocket\u2069; more accurate but a little slower</string>
+    <string name="label_results">Results</string>
+    <string name="label_results_count">Results (%1$s)</string>
+
+    <string name="action_scan">Start scan</string>
+    <string name="action_stop">Stop scan</string>
+    <string name="action_copy">Copy</string>
+    <string name="action_about">About</string>
+
+    <string name="status_idle">Ready to scan</string>
+    <string name="status_scanning">Scanning…</string>
+    <string name="status_progress">Tested %1$s of %2$s</string>
+    <string name="status_done">Scan complete</string>
+    <string name="status_done_detail">%1$s tested: %2$s healthy, %3$s unhealthy</string>
+    <string name="status_stopped">Scan stopped</string>
+    <string name="status_error">Scan failed</string>
+    <string name="status_healthy_badge">%1$s healthy</string>
+    <string name="status_expanded_note">%1$s extra: addresses next to each healthy IP were also tested</string>
+
+    <string name="empty_title">No results yet</string>
+    <string name="empty_hint">Press Start scan to find and rank healthy Cloudflare IPs.</string>
+    <string name="empty_searching">Looking for a healthy IP…</string>
+    <string name="empty_searching_hint">The scan is still running. Results appear here as soon as they are found.</string>
+    <string name="empty_none_found">No healthy IP found</string>
+    <string name="empty_none_found_hint">Try again, or raise the number of IPs. Network behaviour changes constantly.</string>
+    <string name="empty_stopped">Scan stopped before finding anything</string>
+    <string name="empty_stopped_hint">Start the scan again to look for a healthy IP.</string>
+    <string name="empty_error">The scan did not run</string>
+    <string name="empty_error_hint">Check your internet connection and try again.</string>
+
+    <string name="vpn_dialog_title">Turn off your VPN before starting</string>
+    <string name="vpn_dialog_body">If a \u2068VPN\u2069, proxy or custom \u2068DNS\u2069 is active on this phone, the scan traffic travels through it, so what you measure describes the tunnel rather than the real network.\n\nTo find out which IPs genuinely work on a restricted connection, the scan has to run over a plain, direct connection.\n\nDisconnect every \u2068VPN\u2069, then start the scan.</string>
+    <string name="vpn_dialog_scan">Disconnected, start</string>
+    <string name="vpn_dialog_cancel">Later</string>
+    <string name="vpn_active_warning">A \u2068VPN\u2069 appears to be active — results may not be real</string>
+
+    <string name="chip_ping">Ping %1$s</string>
+    <string name="chip_jitter">Jitter %1$s</string>
+    <string name="chip_loss">Loss %1$s</string>
+    <string name="chip_speed">Speed %1$s Mbit</string>
+    <string name="chip_colo">Datacenter %1$s</string>
+    <string name="chip_ws">\u2068WebSocket\u2069</string>
+    <string name="score_and_grade">%2$s\u00A0\u00A0%1$s</string>
+
+    <string name="toast_copied">%1$s IPs copied</string>
+    <string name="toast_copied_one">%1$s copied</string>
+    <string name="toast_nothing">There is nothing to copy</string>
+
+    <string name="about_title">About CF Scanner</string>
+    <string name="about_body">This app scans Cloudflare\'s official IP ranges and ranks the addresses that are genuinely usable.\n\n<b>What the numbers mean</b>\n"How many IPs to test" is the number of addresses picked at random from Cloudflare\'s ranges and tested — not the number of healthy ones you will end up with.\n\nThe number tested can exceed what you asked for: each time a healthy IP is found, its neighbouring addresses are tested too, because Cloudflare\'s servers tend to sit next to one another.\n\n"Healthy" means the IP passed every test. The rest were tested and failed, and are not listed.\n\n<b>The labels on each result</b>\n"Ping" is the round-trip time to that IP in milliseconds; lower is better.\n\n"Jitter" is how much the ping varies; lower is better. A connection with a high but steady ping beats a fast but erratic one.\n\n"Loss" is the share of data that never arrived. It combines failed attempts with the real figures Cloudflare\'s own server reports.\n\n"Speed" comes from a small 128 KB download through that IP. ⚠️ It is not the IP\'s top speed — the transfer is deliberately small, and a connection cannot reach full rate in that time. Its real purpose is to show that the IP actually carries data instead of stalling mid-transfer.\n\n"Datacenter" is the code of the Cloudflare server that answered you: \u2068VIE\u2069 is Vienna, \u2068FRA\u2069 Frankfurt, \u2068IST\u2069 Istanbul. A nearer datacenter scores higher.\n\n"\u2068WebSocket\u2069" means the IP accepted a \u2068WebSocket\u2069 connection — important for clients such as \u2068VLESS\u2069 and \u2068Trojan\u2069 that run over it.\n\n<b>How each IP is tested</b>\nA \u2068TCP\u2069 connection, a \u2068TLS\u2069 handshake, confirmation that it really is a Cloudflare server, holding the connection idle to see whether a firewall cuts it, and finally a real data transfer.\n\nScoring values stability and consistency above raw speed: a steady IP at 250 ms ranks above an unstable one at 30 ms.\n\n<b>Important</b>\nTurn your \u2068VPN\u2069 off while scanning, or the results describe the tunnel rather than the real network.\n\nTap a row to copy that one IP. The Copy button copies the whole list in ranked order.\n\nResults are a snapshot — network behaviour shifts constantly, so scan again whenever the IPs stop working.</string>
+    <string name="about_close">Close</string>
+
+    <string name="grade_excellent">Excellent</string>
+    <string name="grade_good">Good</string>
+    <string name="grade_fair">Fair</string>
+    <string name="grade_weak">Weak</string>
+    <string name="grade_unhealthy">Unhealthy</string>
+
+    <string name="sort_score">Overall score</string>
+    <string name="sort_latency">Lowest ping</string>
+    <string name="sort_jitter">Lowest jitter</string>
+    <string name="sort_loss">Lowest loss</string>
+
+    <string name="action_language">Language</string>
+    <string name="language_dialog_title">App language</string>
+    <string name="language_changed">Language changed to %1$s</string>
+</resources>

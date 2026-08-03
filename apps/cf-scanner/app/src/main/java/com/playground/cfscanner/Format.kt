@@ -1,20 +1,26 @@
 package com.playground.cfscanner
 
 /**
- * Number and text formatting for a Persian right-to-left UI.
+ * Number and text formatting for the selected UI language.
  *
- * Two rules drive everything here:
+ * Three rules drive everything here:
  *
- *  1. **Persian digits for measurements, Latin digits for addresses.** Metrics
- *     like ping, jitter, loss, and counts read naturally in Persian numerals,
- *     but an IP address is a technical identifier that gets copied into config
- *     files — converting its digits would make it useless, so [ip] leaves them
- *     alone.
+ *  1. **Digit shape follows the language, not the direction.** Persian renders
+ *     ۰۱۲۳; English renders 0123. These are tied to the language via
+ *     [AppLocale.usesPersianDigits] rather than inferred from writing direction,
+ *     because the two do not track each other — Arabic and Persian are both
+ *     right-to-left but use different digit forms.
  *
- *  2. **Isolate embedded LTR runs.** A bare number or a Latin word placed inside
- *     Persian text gets reordered by the bidirectional algorithm, which is how
- *     "loss 0%" ended up rendering as "0%لاس". Wrapping such runs in Unicode
- *     isolate characters pins them in place without changing the visible text.
+ *  2. **IP addresses always keep ASCII digits.** They get copied into proxy
+ *     configs, where Persian numerals would be useless. This holds in every
+ *     language.
+ *
+ *  3. **Isolate embedded runs.** A number or Latin word placed inside
+ *     right-to-left text gets reordered by the bidirectional algorithm, which is
+ *     how "loss 0%" once rendered as "0%لاس". Wrapping such runs in Unicode
+ *     isolate characters pins them without changing the visible text. Harmless
+ *     in a left-to-right layout, so it is applied unconditionally rather than
+ *     branching on direction.
  */
 object Format {
 
@@ -26,58 +32,88 @@ object Format {
     /** Pop directional isolate: closes the most recent isolate. */
     const val PDI = '\u2069'
 
-    /** Converts every ASCII digit in [text] to its Persian equivalent. */
-    fun persianDigits(text: String): String {
-        if (text.isEmpty()) return text
+    /**
+     * The locale used for formatting.
+     *
+     * Held here so call sites stay terse — a formatter argument threaded through
+     * every chip and status line would add noise at dozens of sites for a value
+     * that only changes when the user switches language. Set once at startup and
+     * on each change.
+     */
+    @Volatile
+    private var locale: AppLocale = LocaleRegistry.DEFAULT
+
+    fun setLocale(newLocale: AppLocale) {
+        locale = newLocale
+    }
+
+    /** Current locale, exposed for tests and callers that need to branch. */
+    fun currentLocale(): AppLocale = locale
+
+    /**
+     * Converts ASCII digits to the digit shape of the active language.
+     *
+     * A no-op for languages that use Latin digits.
+     */
+    fun localeDigits(text: String): String {
+        if (text.isEmpty() || !locale.usesPersianDigits) return text
         val sb = StringBuilder(text.length)
-        for (c in text) {
-            sb.append(if (c in '0'..'9') PERSIAN_DIGITS[c - '0'] else c)
-        }
+        for (c in text) sb.append(if (c in '0'..'9') PERSIAN_DIGITS[c - '0'] else c)
         return sb.toString()
     }
 
-    /** Renders [value] with Persian digits. */
-    fun number(value: Int): String = persianDigits(value.toString())
-
-    /** Renders [value] with Persian digits. */
-    fun number(value: Long): String = persianDigits(value.toString())
-
     /**
-     * Wraps [text] in directional isolates so it keeps its own ordering when
-     * embedded in Persian text.
+     * Converts ASCII digits to Persian regardless of the active language.
+     *
+     * Kept for the rare case where Persian digits are wanted explicitly; the
+     * language-sensitive [localeDigits] is what the UI should use.
      */
+    fun persianDigits(text: String): String {
+        if (text.isEmpty()) return text
+        val sb = StringBuilder(text.length)
+        for (c in text) sb.append(if (c in '0'..'9') PERSIAN_DIGITS[c - '0'] else c)
+        return sb.toString()
+    }
+
+    /** Wraps [text] in directional isolates so it keeps its own ordering. */
     fun isolate(text: String): String = "$FSI$text$PDI"
 
+    fun number(value: Int): String = localeDigits(value.toString())
+
+    fun number(value: Long): String = localeDigits(value.toString())
+
     /**
-     * An IP address for display: Latin digits, isolated so the dots and numbers
+     * An IP address for display: ASCII digits, isolated so the dots and numbers
      * are never reordered by surrounding right-to-left text.
      */
     fun ip(address: String): String = isolate(address)
 
     /**
-     * A millisecond measurement as a bare Persian numeral, e.g. "۲۳".
+     * A millisecond measurement as a bare numeral.
      *
-     * The unit is deliberately omitted. "۲۳ms" mixes Persian digits with a Latin
-     * unit inside a right-to-left row and reads badly; the chip label ("پینگ",
-     * "نوسان") already establishes that the value is a duration.
+     * The unit is omitted deliberately: mixing a Latin "ms" with Persian digits
+     * reads badly in a right-to-left row, and the chip label already establishes
+     * that the value is a duration.
      */
-    fun millis(value: Long): String = isolate(persianDigits(value.toString()))
+    fun millis(value: Long): String = isolate(localeDigits(value.toString()))
 
-    /** A percentage, e.g. "۰٪", using the Persian percent sign. */
-    fun percent(value: Int): String = isolate("${persianDigits(value.toString())}٪")
+    /** A percentage, using the percent sign appropriate to the language. */
+    fun percent(value: Int): String {
+        val sign = if (locale.usesPersianDigits) "٪" else "%"
+        return isolate("${localeDigits(value.toString())}$sign")
+    }
 
     /**
-     * A transfer rate in megabits per second, e.g. "۱٫۴ مگابیت".
+     * A transfer rate in megabits per second.
      *
-     * Megabits rather than megabytes because that is how connection speed is
-     * quoted everywhere, and one decimal place because a scan measures a short
-     * burst — more precision would imply accuracy the measurement does not have.
+     * One decimal place because a scan measures a short burst — more precision
+     * would imply accuracy the measurement does not have.
      */
     fun speed(bytesPerSecond: Long): String {
         val mbps = bytesPerSecond * 8.0 / 1_000_000.0
         val rounded = kotlin.math.round(mbps * 10) / 10.0
-        // Persian uses U+066B as its decimal separator.
-        val text = persianDigits(rounded.toString().replace('.', '\u066B'))
+        val separator = if (locale.usesPersianDigits) '\u066B' else '.'
+        val text = localeDigits(rounded.toString().replace('.', separator))
         return isolate(text)
     }
 }

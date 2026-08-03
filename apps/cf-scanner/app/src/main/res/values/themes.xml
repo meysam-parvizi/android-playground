@@ -6,12 +6,18 @@
       concrete themes below and in values-night, so they are defined once each.
     -->
     <style name="Theme.CfScanner.Base" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- The UI is Persian regardless of the device locale, so the direction
-             is forced rather than inherited. "locale" would leave the layout
-             left-to-right on an English device, which is what made the mixed
-             Persian/Latin lines read as if only the words had been translated. -->
-        <item name="android:layoutDirection">rtl</item>
-        <item name="android:textDirection">rtl</item>
+        <!--
+          Layout direction follows the selected language.
+
+          This was previously pinned to "rtl" because the UI was Persian-only and
+          the device locale could not be relied on. Now that the app sets its own
+          locale via AppCompatDelegate, "locale" resolves against that choice: it
+          mirrors for Persian and stays left-to-right for English. Leaving it
+          forced would render the English UI right-aligned with the toolbar title
+          on the wrong side.
+        -->
+        <item name="android:layoutDirection">locale</item>
+        <item name="android:textDirection">locale</item>
         <item name="android:textAlignment">viewStart</item>
 
         <!-- Vazirmatn everywhere. Overriding the Material type scale rather than

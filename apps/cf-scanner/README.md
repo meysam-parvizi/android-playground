@@ -124,15 +124,39 @@ It is applied by overriding the Material 3 type scale in the theme rather than s
 
 IP addresses stay **monospace**: aligned digits make a column of addresses much easier to compare, and the address is Latin-only so no Persian glyphs are involved.
 
+## Languages
+
+Persian and English, chosen with the globe button in the toolbar. **Persian is the default** — the app exists for users on restricted networks, so following a phone that ships set to English would be wrong more often than not.
+
+The choice is stored and survives restart. AppCompat persists its own selection from API 33 onward but not below it, so the app keeps its own record and restores it in `Application.onCreate` — before any view inflates, so the first frame is already in the right language.
+
+### Adding a language
+
+Two steps, and no logic changes anywhere:
+
+1. Add an entry to `LocaleRegistry.SUPPORTED`:
+
+   ```kotlin
+   AppLocale(tag = "ar", endonym = "العربية", usesPersianDigits = true)
+   ```
+
+2. Create `res/values-ar/strings.xml` with the same keys as `res/values/strings.xml`.
+
+The picker, persistence, layout direction and number formatting are all derived from that list. `StringResourceParityTest` fails the build if a declared language is missing keys, declares stray ones, leaves a value blank, or disagrees on format placeholders — so a half-translated language cannot ship and silently fall back to Persian halfway down a screen.
+
+Language names are shown as **endonyms**, each in its own script, because someone who cannot read the current interface language still needs to find theirs.
+
+`usesPersianDigits` is declared per language rather than inferred from writing direction: the two do not track each other, since Arabic and Persian are both right-to-left but use different digit forms.
+
 ### Persian numerals and bidi
 
-The layout direction is **forced to RTL** rather than inherited from the device locale. Leaving it as `locale` kept the layout left-to-right on an English-locale device, which made the mixed Persian/Latin lines read as though only the words had been translated.
+Layout direction is `locale`, so it mirrors for Persian and stays left-to-right for English. It was previously forced to `rtl` because the UI was Persian-only; now that the app sets its own locale, forcing it would render the English UI right-aligned.
 
-All measurements render in Persian digits (`۸۵`, `۲۹`, `۰٪`), but **IP addresses deliberately keep Latin digits** — they get copied into client configs, where Persian numerals would be useless.
+Measurements render in the digit shape of the selected language — `۸۵` in Persian, `85` in English — but **IP addresses always keep Latin digits, in every language**, because they get copied into client configs where Persian numerals would be useless.
 
-Durations are shown as bare numerals with no `ms` suffix: a Latin unit beside Persian digits reads badly in a right-to-left row, and the chip label (`پینگ`, `نوسان`) already establishes what the value is.
+Durations are shown as bare numerals with no `ms` suffix: a Latin unit beside Persian digits reads badly in a right-to-left row, and the chip label already establishes what the value is.
 
-Latin words and numeric values embedded in Persian sentences are wrapped in Unicode directional isolates (`U+2068` / `U+2069`). Without them the bidirectional algorithm reorders the run: "loss 0%" rendered as `0%لاس`, and the settings hint scrambled around the word `WebSocket`. `FormatTest` pins both rules, including that an address never contains a Persian digit.
+Latin words and numeric values embedded in Persian sentences are wrapped in Unicode directional isolates (`U+2068` / `U+2069`). Without them the bidirectional algorithm reorders the run: "loss 0%" rendered as `0%لاس`, and the settings hint scrambled around the word `WebSocket`. The isolates are applied in both languages — invisible in a left-to-right layout, and one code path rather than two. `LocaleAwareFormatTest` pins these rules, including that an address never contains a Persian digit in any language.
 
 ### Keeping the list smooth
 
@@ -253,7 +277,7 @@ Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner
 - Every push/PR touching `apps/cf-scanner/**` runs the unit tests, builds the APK, and uploads it as an artifact
 - Pushing a tag `cf-scanner-v<version>` publishes the APK as a GitHub Release asset
 
-Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.3.1**.
+Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.4.0**.
 
 ## Details
 

@@ -79,7 +79,8 @@ class ResultAdapter(
         // must stay ASCII and its ordering must survive the RTL layout.
         holder.ip.text = Format.ip(r.ip)
 
-        holder.score.text = ctx.getString(R.string.score_and_grade, Format.number(score), r.grade())
+        holder.score.text =
+            ctx.getString(R.string.score_and_grade, Format.number(score), ctx.getString(r.gradeRes()))
         holder.score.setTextColor(colour)
 
         holder.chipPing.text = ctx.getString(R.string.chip_ping, Format.millis(r.avgMs()))

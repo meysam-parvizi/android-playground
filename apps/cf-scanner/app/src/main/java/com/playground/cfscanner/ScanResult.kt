@@ -182,13 +182,19 @@ data class ScanResult(
             .toInt()
     }
 
-    /** Human-readable grade for the UI. */
-    fun grade(): String = when (score()) {
-        in 90..100 -> "عالی"
-        in 75..89 -> "خوب"
-        in 55..74 -> "متوسط"
-        in 1..54 -> "ضعیف"
-        else -> "ناسالم"
+    /**
+     * Quality band for the UI.
+     *
+     * Returns a string resource rather than text so the label follows the
+     * selected language. Returning a literal here was what made the grade the
+     * one part of a result row that stayed Persian in an English UI.
+     */
+    fun gradeRes(): Int = when (score()) {
+        in 90..100 -> R.string.grade_excellent
+        in 75..89 -> R.string.grade_good
+        in 55..74 -> R.string.grade_fair
+        in 1..54 -> R.string.grade_weak
+        else -> R.string.grade_unhealthy
     }
 
     companion object {
@@ -211,12 +217,18 @@ data class ScanResult(
     }
 }
 
-/** Ordering strategies offered in the UI. */
-enum class SortBy(val label: String) {
-    SCORE("امتیاز کلی"),
-    LATENCY("کمترین پینگ"),
-    JITTER("کمترین نوسان"),
-    LOSS("کمترین پکت‌لاس"),
+/**
+ * Ordering strategies offered in the UI.
+ *
+ * Carries a string resource rather than a label, so the sort names follow the
+ * selected language. A literal here previously left the sort dropdown in Persian
+ * regardless of the chosen UI language.
+ */
+enum class SortBy(val labelRes: Int) {
+    SCORE(R.string.sort_score),
+    LATENCY(R.string.sort_latency),
+    JITTER(R.string.sort_jitter),
+    LOSS(R.string.sort_loss),
 }
 
 object Ranking {

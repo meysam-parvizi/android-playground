@@ -47,20 +47,31 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Tell the formatter which digit shapes to use before anything renders.
+        // The locale itself is applied in Application.onCreate, since it must be
+        // set before any view is inflated.
+        Format.setLocale(LocaleRegistry.current(this))
+
         setContentView(R.layout.activity_main)
 
         findViewById<MaterialToolbar>(R.id.toolbar).setOnMenuItemClickListener { item ->
-            if (item.itemId == R.id.action_about) {
-                showAbout()
-                true
-            } else {
-                false
+            when (item.itemId) {
+                R.id.action_about -> {
+                    showAbout(); true
+                }
+                R.id.action_language -> {
+                    showLanguagePicker(); true
+                }
+                else -> false
             }
         }
 
         headerAdapter = HeaderAdapter(
             countOptions = countOptions,
-            sortLabels = SortBy.entries.map { it.label },
+            // Resolved here rather than held on the enum, so the dropdown follows
+            // the selected language.
+            sortLabels = SortBy.entries.map { getString(it.labelRes) },
             callbacks = this,
         )
         emptyAdapter = EmptyStateAdapter()
@@ -273,6 +284,37 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
 
     private fun snack(message: String) {
         Snackbar.make(findViewById(android.R.id.content), message, Snackbar.LENGTH_SHORT).show()
+    }
+
+    /**
+     * Lets the user pick the interface language.
+     *
+     * Options come from [LocaleRegistry.SUPPORTED], so adding a language to that
+     * list is enough to make it appear here — no change is needed in this file.
+     *
+     * Each language is listed under its own name in its own script, so someone
+     * who cannot read the current interface language can still find theirs.
+     */
+    private fun showLanguagePicker() {
+        val options = LocaleRegistry.SUPPORTED
+        val labels = options.map { it.endonym }.toTypedArray()
+        val currentIndex = options.indexOf(LocaleRegistry.current(this)).coerceAtLeast(0)
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.language_dialog_title)
+            .setSingleChoiceItems(labels, currentIndex) { dialog, which ->
+                dialog.dismiss()
+                val chosen = options[which]
+                if (chosen.tag != LocaleRegistry.current(this).tag) {
+                    // Applying a locale recreates the activity, so the whole UI
+                    // including this screen's already-rendered values is redrawn
+                    // in the new language.
+                    Format.setLocale(chosen)
+                    LocaleRegistry.apply(this, chosen)
+                }
+            }
+            .setNegativeButton(R.string.about_close, null)
+            .show()
     }
 
     private fun showAbout() {
