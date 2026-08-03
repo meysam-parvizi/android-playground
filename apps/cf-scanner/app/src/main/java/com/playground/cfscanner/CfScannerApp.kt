@@ -3,26 +3,27 @@ package com.playground.cfscanner
 import android.app.Application
 
 /**
- * Applies the stored UI language before anything is inflated.
+ * Establishes the UI language before the first activity is created.
  *
- * This has to happen here rather than in an activity: by the time
- * `Activity.onCreate` runs, the theme and layout have already been resolved
- * against whatever locale was active, so a language set there would only take
- * effect after a recreation. Setting it at application start means the first
- * frame is already in the right language.
+ * On first launch nothing is stored, and AppCompat leaves the app on the device
+ * locale — which is how an English phone ended up showing an English,
+ * left-to-right interface while the picker reported Persian. Applying the app's
+ * default here makes the two agree from the first frame.
+ *
+ * The `AppLocalesMetadataHolderService` entry in the manifest is what makes this
+ * work on Android 12 and below: AppCompat reads the saved locale during startup
+ * only when that service is declared.
  */
 class CfScannerApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
 
-        // AppCompat persists its own locale choice from API 33 onward, but not
-        // below it, so the app keeps its own record and restores it here. Without
-        // this, older devices would silently fall back to the device language.
+        // No-ops once a language has been chosen; AppCompat restores that itself.
         LocaleRegistry.restore(this)
 
-        // Digit shapes are chosen per language, so the formatter has to agree
-        // with the locale that was just applied.
+        // Digit shapes follow the language. MainActivity re-applies this on every
+        // create, so a switch stays consistent after the recreate.
         Format.setLocale(LocaleRegistry.current(this))
     }
 }

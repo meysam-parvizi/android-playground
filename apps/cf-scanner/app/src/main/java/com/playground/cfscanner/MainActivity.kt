@@ -48,9 +48,11 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Tell the formatter which digit shapes to use before anything renders.
-        // The locale itself is applied in Application.onCreate, since it must be
-        // set before any view is inflated.
+        // Digit shapes follow the language, so the formatter is aligned on every
+        // create — including the recreate that a language switch triggers.
+        // LocaleRegistry.current() reads AppCompat, so this reflects what the
+        // resources actually resolved to rather than a stored value that might
+        // disagree.
         Format.setLocale(LocaleRegistry.current(this))
 
         setContentView(R.layout.activity_main)

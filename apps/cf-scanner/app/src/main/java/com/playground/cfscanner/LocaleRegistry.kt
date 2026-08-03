@@ -71,13 +71,19 @@ object LocaleRegistry {
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     /**
-     * The user's stored choice, or [DEFAULT].
+     * The language the UI is currently showing.
      *
-     * An unknown stored tag falls back to the default rather than failing: a
-     * language removed in a later version must not leave the app unable to start.
+     * Read from AppCompat first, since that is what actually drives resource
+     * resolution. The stored preference is only a fallback for the window before
+     * AppCompat has loaded its own record.
      */
-    fun current(context: Context): AppLocale =
-        byTag(prefs(context).getString(KEY_LOCALE, null)) ?: DEFAULT
+    fun current(context: Context): AppLocale {
+        val active = AppCompatDelegate.getApplicationLocales()
+        if (!active.isEmpty) {
+            byTag(active[0]?.language)?.let { return it }
+        }
+        return byTag(prefs(context).getString(KEY_LOCALE, null)) ?: DEFAULT
+    }
 
     /** Persists [locale] and applies it immediately. */
     fun apply(context: Context, locale: AppLocale) {
@@ -99,13 +105,30 @@ object LocaleRegistry {
     }
 
     /**
-     * Re-applies the stored choice at startup.
+     * Establishes the language on first launch.
      *
-     * AppCompat persists its own selection from API 33 onward, but not below it,
-     * so the app stores the choice itself and restores it here. Without this the
-     * app would silently revert to the device language on older devices.
+     * Only acts when no locale has been chosen yet. Once the user has picked one,
+     * AppCompat holds it — restored from its own storage via the
+     * `AppLocalesMetadataHolderService` entry in the manifest — and re-applying
+     * here would fight that.
+     *
+     * The first-launch case is what the fix is for. With nothing set, AppCompat
+     * leaves the app on the device locale, so an English phone showed an English,
+     * left-to-right interface while the picker reported Persian: the picker read
+     * the app's own default while the resources followed the device. Applying the
+     * default explicitly makes the two agree from the very first frame.
      */
     fun restore(context: Context) {
-        applyWithoutPersisting(current(context))
+        if (!AppCompatDelegate.getApplicationLocales().isEmpty) return
+
+        val stored = byTag(prefs(context).getString(KEY_LOCALE, null))
+        val locale = stored ?: DEFAULT
+
+        // Record the default too, so the stored value and what is displayed never
+        // disagree — that mismatch is exactly what the bug looked like.
+        if (stored == null) {
+            prefs(context).edit().putString(KEY_LOCALE, locale.tag).apply()
+        }
+        applyWithoutPersisting(locale)
     }
 }

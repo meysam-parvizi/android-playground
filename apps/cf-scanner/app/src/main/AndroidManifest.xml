@@ -13,6 +13,33 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.CfScanner">
 
+        <!--
+          Makes the per-app language work on Android 12 (API 32) and below.
+
+          On API 33+ the framework stores and restores the choice itself. Below
+          that, AppCompat has to do it, and it only does so when this service is
+          declared: it reads the `autoStoreLocales` metadata during startup and
+          applies the saved locale *before* the first activity is created.
+
+          Without it, `setApplicationLocales` had nothing to act on at
+          Application.onCreate — no activity existed yet to recreate — so the call
+          was silently dropped and the UI came up in the device language. That is
+          the bug where the picker showed Persian while the interface stayed
+          English and left-to-right.
+
+          `android:enabled="false"` is intentional and matches AndroidX's own
+          guidance: the service is never started, it exists purely to carry the
+          metadata tag.
+        -->
+        <service
+            android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
+            android:enabled="false"
+            android:exported="false">
+            <meta-data
+                android:name="autoStoreLocales"
+                android:value="true" />
+        </service>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

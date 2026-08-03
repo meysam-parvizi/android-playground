@@ -148,6 +148,27 @@ Language names are shown as **endonyms**, each in its own script, because someon
 
 `usesPersianDigits` is declared per language rather than inferred from writing direction: the two do not track each other, since Arabic and Persian are both right-to-left but use different digit forms.
 
+### Making the language actually apply
+
+Two separate things had to be right, and getting only one of them produced an app that looked correct and behaved wrongly — the picker reporting Persian while the interface stayed English and left-to-right.
+
+**1. The manifest service.** `AppCompatDelegate.setApplicationLocales` is silently dropped on Android 12 and below unless this is declared:
+
+```xml
+<service
+    android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
+    android:enabled="false"
+    android:exported="false">
+    <meta-data android:name="autoStoreLocales" android:value="true" />
+</service>
+```
+
+Nothing in the Kotlin hints at this requirement, which is why it went unnoticed through two rounds of fixes. `android:enabled="false"` is correct: the service never runs, it only carries the metadata.
+
+**2. Applying the default on first launch.** With nothing stored, AppCompat leaves the app on the *device* locale. The picker read the app's declared default (Persian) while the resources followed the device (English) — so the two disagreed on screen. `LocaleRegistry.restore()` now applies the default when AppCompat holds nothing, and returns early once a choice exists so it does not fight AppCompat's own restored value.
+
+`LocaleWiringTest` asserts both, since neither is visible from reading the Kotlin alone.
+
 ### Every language needs its own `values-<tag>/` folder
 
 Worth knowing before adding a language, because it produced a confusing bug: the app opened in **English** on first launch even though the picker showed Persian.
@@ -293,7 +314,7 @@ Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner
 - Every push/PR touching `apps/cf-scanner/**` runs the unit tests, builds the APK, and uploads it as an artifact
 - Pushing a tag `cf-scanner-v<version>` publishes the APK as a GitHub Release asset
 
-Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.4.1**.
+Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.4.2**.
 
 ## Details
 
