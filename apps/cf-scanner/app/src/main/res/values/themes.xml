@@ -95,6 +95,28 @@
         <item name="android:fontFamily">@font/vazirmatn</item>
     </style>
 
+    <!--
+      Toolbar title styles.
+
+      The screen title is long in both languages, so it is shown large across two
+      lines when the bar is expanded and shrinks to fit on one line when
+      collapsed. A single fixed size would have to be small enough for the
+      collapsed state, which wastes the expanded space.
+    -->
+    <style name="TextAppearance.CfScanner.ToolbarExpanded" parent="TextAppearance.Material3.HeadlineMedium">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+        <!-- Tightened at display size; Vazirmatn sets wide by default. -->
+        <item name="android:letterSpacing">-0.015</item>
+    </style>
+
+    <style name="TextAppearance.CfScanner.ToolbarCollapsed" parent="TextAppearance.Material3.TitleMedium">
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+    </style>
+
     <style name="TextAppearance.CfScanner.TitleLarge" parent="TextAppearance.Material3.TitleLarge">
         <item name="fontFamily">@font/vazirmatn</item>
         <item name="android:fontFamily">@font/vazirmatn</item>

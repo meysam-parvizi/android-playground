@@ -126,4 +126,8 @@
     <string name="a11y_result_rank">رتبه %1$s</string>
 
     <string name="scan_interrupted_warning">بخشی از این اسکن در پس‌زمینه انجام شد، بنابراین برخی نتایج ممکن است کمتر از واقعیت باشند. برای اعداد دقیق دوباره اسکن کنید.</string>
+
+    <!-- Shown in the toolbar. Separate from app_name, which labels the
+         launcher icon and must stay short enough not to be truncated. -->
+    <string name="screen_title">اسکنر آی‌پی تمیز کلادفلر</string>
 </resources>

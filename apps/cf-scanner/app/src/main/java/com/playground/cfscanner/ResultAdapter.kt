@@ -1,8 +1,10 @@
 package com.playground.cfscanner
 
 import android.content.Context
-import android.content.res.ColorStateList
 import android.graphics.drawable.GradientDrawable
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -31,24 +33,7 @@ class ResultAdapter(
         val rank: TextView = view.findViewById(R.id.rowRank)
         val ip: TextView = view.findViewById(R.id.rowIp)
         val score: TextView = view.findViewById(R.id.rowScore)
-        val chipPing: Chip = view.findViewById(R.id.chipPing)
-        val chipJitter: Chip = view.findViewById(R.id.chipJitter)
-        val chipLoss: Chip = view.findViewById(R.id.chipLoss)
-        val chipColo: Chip = view.findViewById(R.id.chipColo)
-        val chipSpeed: Chip = view.findViewById(R.id.chipSpeed)
-        val chipWs: Chip = view.findViewById(R.id.chipWs)
-
-        /** Cached so the default chip colour is not re-read on every bind. */
-        var defaultChipTextColor: Int = 0
-
-        /**
-         * The chip background before any per-result tint.
-         *
-         * Captured so a recycled WebSocket chip can be returned to its unstyled
-         * look; without it the green highlight persisted onto rows that never
-         * carried a WebSocket.
-         */
-        var defaultChipBackground: ColorStateList? = null
+        val metrics: TextView = view.findViewById(R.id.rowMetrics)
     }
 
     /**
@@ -73,10 +58,7 @@ class ResultAdapter(
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
         val v = LayoutInflater.from(parent.context).inflate(R.layout.item_result, parent, false)
-        return Holder(v).also {
-            it.defaultChipTextColor = it.chipPing.currentTextColor
-            it.defaultChipBackground = it.chipWs.chipBackgroundColor
-        }
+        return Holder(v)
     }
 
     /**
@@ -110,45 +92,23 @@ class ResultAdapter(
             ctx.getString(R.string.score_and_grade, Format.number(score), ctx.getString(r.gradeRes()))
         holder.score.setTextColor(colour)
 
-        holder.chipPing.text = ctx.getString(R.string.chip_ping, Format.millis(r.avgMs()))
-        holder.chipJitter.text = ctx.getString(R.string.chip_jitter, Format.millis(r.jitterMs()))
-        holder.chipLoss.text = ctx.getString(R.string.chip_loss, Format.percent(r.loss().toInt()))
+        // Metrics on one line. Previously six Chip views, which cost six
+        // inflations and a flow-layout measure pass per row, announced six
+        // useless stops to a screen reader, and were never interactive.
+        val metrics = metricsLine(ctx, r)
+        holder.metrics.text = metrics
 
-        // Loss is the metric worth calling out, so colour it when non-zero.
-        holder.chipLoss.setTextColor(
-            if (r.loss() > 0) ctx.getColor(R.color.grade_weak) else holder.defaultChipTextColor,
-        )
-
-        holder.chipColo.text = ctx.getString(R.string.chip_colo, r.colo)
-        holder.chipColo.visibility = if (r.colo.isEmpty()) View.GONE else View.VISIBLE
-
-        // Throughput, only when a transfer was actually measured.
-        if (r.throughputBps > 0) {
-            holder.chipSpeed.text = ctx.getString(R.string.chip_speed, Format.speed(r.throughputBps))
-            holder.chipSpeed.visibility = View.VISIBLE
-        } else {
-            holder.chipSpeed.visibility = View.GONE
+        // The row is one accessibility stop announcing everything, rather than
+        // a card plus six focusable chips that each said a value and did nothing.
+        holder.itemView.contentDescription = buildString {
+            append(ctx.getString(R.string.a11y_result_rank, Format.number(position + 1)))
+            append(", ")
+            append(Format.ip(r.ip))
+            append(", ")
+            append(holder.score.text)
+            append(", ")
+            append(metrics)
         }
-
-        // WebSocket carry is a real capability signal, so highlight it.
-        holder.chipWs.visibility = if (r.wsOk) View.VISIBLE else View.GONE
-        if (r.wsOk) {
-            holder.chipWs.setTextColor(ctx.getColor(R.color.grade_excellent))
-            holder.chipWs.chipBackgroundColor =
-                ColorStateList.valueOf(ctx.getColor(R.color.grade_excellent_bg))
-        } else {
-            // Reset explicitly: without this the green tint stayed on a recycled
-            // view and rows that never carried a WebSocket inherited the styling
-            // of whichever row previously used that holder.
-            holder.chipWs.setTextColor(holder.defaultChipTextColor)
-            holder.chipWs.chipBackgroundColor = holder.defaultChipBackground
-        }
-
-        // One combined description for the whole row. Each chip is excluded from
-        // accessibility (see Widget.CfScanner.MetricChip), so a screen reader
-        // makes a single stop per result that announces everything and offers the
-        // copy action, instead of six stops that announce a value and do nothing.
-        holder.itemView.contentDescription = describe(ctx, r, position + 1)
 
         holder.itemView.setOnClickListener { onRowClick(r) }
     }
@@ -168,34 +128,43 @@ class ResultAdapter(
     }
 
     /**
-     * Builds the spoken description of a result row.
+     * Builds the single metrics line shown under the address.
      *
-     * Reads as a sentence rather than a list of labels, and includes only the
-     * metrics actually shown, so the announcement matches the visible row.
+     * Only what was actually measured appears: colo, throughput and WebSocket are
+     * omitted when absent rather than rendered blank, so the line never ends with
+     * a dangling separator.
+     *
+     * The separator is a spaced en dash rather than a middle dot. A middle dot
+     * next to Persian digits reads as a zero — the same reason it was removed
+     * from the score line earlier.
      */
-    private fun describe(ctx: Context, r: ScanResult, rank: Int): CharSequence = buildString {
-        append(ctx.getString(R.string.a11y_result_rank, Format.number(rank)))
-        append(", ")
-        append(Format.ip(r.ip))
-        append(", ")
-        append(ctx.getString(R.string.score_and_grade, Format.number(r.score()), ctx.getString(r.gradeRes())))
-        append(", ")
-        append(ctx.getString(R.string.chip_ping, Format.millis(r.avgMs())))
-        append(", ")
-        append(ctx.getString(R.string.chip_jitter, Format.millis(r.jitterMs())))
-        append(", ")
-        append(ctx.getString(R.string.chip_loss, Format.percent(r.loss().toInt())))
-        if (r.colo.isNotEmpty()) {
-            append(", ")
-            append(ctx.getString(R.string.chip_colo, r.colo))
-        }
+    private fun metricsLine(ctx: Context, r: ScanResult): CharSequence {
+        val parts = mutableListOf<String>()
+        parts += ctx.getString(R.string.chip_ping, Format.millis(r.avgMs()))
+        parts += ctx.getString(R.string.chip_jitter, Format.millis(r.jitterMs()))
+
+        val lossText = ctx.getString(R.string.chip_loss, Format.percent(r.loss().toInt()))
+        val lossStart = parts.sumOf { it.length + SEPARATOR.length }
+        parts += lossText
+
+        if (r.colo.isNotEmpty()) parts += ctx.getString(R.string.chip_colo, r.colo)
         if (r.throughputBps > 0) {
-            append(", ")
-            append(ctx.getString(R.string.chip_speed, Format.speed(r.throughputBps)))
+            parts += ctx.getString(R.string.chip_speed, Format.speed(r.throughputBps))
         }
-        if (r.wsOk) {
-            append(", ")
-            append(ctx.getString(R.string.chip_ws))
+        if (r.wsOk) parts += ctx.getString(R.string.chip_ws)
+
+        val line = parts.joinToString(SEPARATOR)
+        if (r.loss() <= 0) return line
+
+        // Colour only the loss segment. Tinting the whole line would imply the
+        // ping and jitter are also bad, and loss is the metric worth flagging.
+        return SpannableString(line).apply {
+            setSpan(
+                ForegroundColorSpan(ctx.getColor(R.color.grade_weak)),
+                lossStart,
+                lossStart + lossText.length,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
         }
     }
 
@@ -254,6 +223,13 @@ class ResultAdapter(
     }
 
     private companion object {
+        /**
+         * Separator between metrics. A spaced en dash, not a middle dot: beside
+         * Persian digits a middle dot sits at the same height as ۰ and is easily
+         * read as one. The score line dropped it for the same reason.
+         */
+        const val SEPARATOR = "  –  "
+
         /**
          * Marks a rebind that only needs the rank badge redrawn.
          *

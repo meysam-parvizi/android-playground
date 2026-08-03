@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  One spacing and shape scale for the whole app.
+
+  The layouts had grown 1, 2, 4, 6, 8, 10, 12, 14, 16, 20, 24 and 28dp values and
+  two different card radii. Individually each looked fine; together they read as
+  slightly untidy, because nothing lined up between one card and the next.
+
+  Everything here is a multiple of 4 except the hairline, and each value has one
+  job. Changing a number changes it everywhere it means the same thing.
+-->
+<resources>
+
+    <!-- Spacing scale, 4dp grid. -->
+    <dimen name="space_hairline">1dp</dimen>
+    <dimen name="space_xs">4dp</dimen>
+    <dimen name="space_s">8dp</dimen>
+    <dimen name="space_m">12dp</dimen>
+    <dimen name="space_l">16dp</dimen>
+    <dimen name="space_xl">24dp</dimen>
+    <dimen name="space_xxl">32dp</dimen>
+
+    <!--
+      Shape. A single card radius rather than 16 and 20: differing radii between
+      adjacent cards is the kind of mismatch that is hard to name but easy to see.
+    -->
+    <dimen name="radius_card">20dp</dimen>
+    <dimen name="radius_control">14dp</dimen>
+    <dimen name="radius_chip">10dp</dimen>
+
+    <!-- Card interior padding, used by every card so their contents align. -->
+    <dimen name="card_padding">20dp</dimen>
+
+    <!-- Vertical gap between cards in the list. -->
+    <dimen name="card_gap">12dp</dimen>
+
+    <!-- Minimum touch target, per the accessibility guidance. -->
+    <dimen name="touch_target">48dp</dimen>
+
+</resources>

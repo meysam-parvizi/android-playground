@@ -1,24 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  One result row.
+
+  Flattened from four nested LinearLayouts plus a ChipGroup to a single
+  ConstraintLayout. The ChipGroup was the expensive part: a flow layout measures
+  all its children and then re-measures any that wrap, and this row is bound
+  hundreds of times while a scan reorders the list.
+
+  The chips are gone entirely. They were labels, not controls — never clickable,
+  and excluded from accessibility because six focusable stops per row made the
+  list unusable with a screen reader. A single styled line carries the same
+  information for one view instead of six inflations.
+-->
 <com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="8dp"
-    app:cardCornerRadius="16dp"
+    android:layout_marginBottom="@dimen/card_gap"
+    android:clickable="true"
+    android:focusable="true"
+    app:cardCornerRadius="@dimen/radius_card"
     app:cardElevation="0dp"
-    app:strokeWidth="1dp"
+    app:strokeWidth="@dimen/space_hairline"
     app:strokeColor="?attr/colorOutline"
     app:cardBackgroundColor="?attr/colorSurface"
-    android:foreground="?attr/selectableItemBackground">
+    app:rippleColor="?attr/colorPrimary">
 
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="12dp"
-        android:baselineAligned="false"
-        android:gravity="center_vertical">
+        android:paddingHorizontal="@dimen/space_l"
+        android:paddingVertical="@dimen/space_m">
 
         <!--
           Rank badge, tinted by grade so quality reads at a glance.
@@ -29,96 +42,65 @@
         -->
         <TextView
             android:id="@+id/rowRank"
-            android:layout_width="34dp"
-            android:layout_height="34dp"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
             android:background="@drawable/bg_rank"
             android:gravity="center"
             android:textAlignment="center"
             android:includeFontPadding="false"
             android:textAppearance="@style/TextAppearance.CfScanner.LabelLarge"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
-        <LinearLayout
+        <!-- The address: monospace and always LTR, since it is copied verbatim. -->
+        <TextView
+            android:id="@+id/rowIp"
             android:layout_width="0dp"
-            android:layout_weight="1"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:orientation="vertical">
+            android:layout_marginStart="@dimen/space_m"
+            android:textAppearance="@style/TextAppearance.CfScanner.Mono"
+            android:textColor="?attr/colorOnSurface"
+            android:textDirection="ltr"
+            android:singleLine="true"
+            android:ellipsize="end"
+            app:layout_constraintStart_toEndOf="@id/rowRank"
+            app:layout_constraintEnd_toStartOf="@id/rowScore"
+            app:layout_constraintTop_toTopOf="@id/rowRank"
+            app:layout_constraintHorizontal_bias="0" />
 
-            <!-- IP + score on one line -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
+        <!-- Score and grade, coloured by band. -->
+        <TextView
+            android:id="@+id/rowScore"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/space_s"
+            android:textAppearance="@style/TextAppearance.CfScanner.LabelLarge"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/rowIp"
+            app:layout_constraintBottom_toBottomOf="@id/rowIp" />
 
-                <TextView
-                    android:id="@+id/rowIp"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content"
-                    android:textAppearance="@style/TextAppearance.CfScanner.Mono"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textDirection="ltr"
-                    android:singleLine="true"
-                    android:ellipsize="end" />
+        <!--
+          Metrics on one line: "ping 41 · jitter 3 · loss 0% · VIE".
+          Built in the adapter so absent values are omitted rather than shown
+          empty, and so the separator never appears at either end.
+        -->
+        <TextView
+            android:id="@+id/rowMetrics"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/space_m"
+            android:layout_marginTop="@dimen/space_xs"
+            android:textAppearance="@style/TextAppearance.CfScanner.Label"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:lineSpacingExtra="2dp"
+            app:layout_constraintStart_toEndOf="@id/rowRank"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/rowIp"
+            app:layout_constraintBottom_toBottomOf="parent" />
 
-                <TextView
-                    android:id="@+id/rowScore"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:textAppearance="@style/TextAppearance.CfScanner.LabelLarge"
-                    android:textStyle="bold" />
-            </LinearLayout>
-
-            <!-- Metric chips: compact, scannable, no wall of text. -->
-            <com.google.android.material.chip.ChipGroup
-                android:id="@+id/rowChips"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                app:chipSpacingHorizontal="4dp"
-                app:chipSpacingVertical="2dp"
-                app:singleLine="false">
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipPing"
-                    style="@style/Widget.CfScanner.MetricChip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipJitter"
-                    style="@style/Widget.CfScanner.MetricChip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipLoss"
-                    style="@style/Widget.CfScanner.MetricChip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipColo"
-                    style="@style/Widget.CfScanner.MetricChip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipSpeed"
-                    style="@style/Widget.CfScanner.MetricChip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipWs"
-                    style="@style/Widget.CfScanner.MetricChip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/chip_ws" />
-            </com.google.android.material.chip.ChipGroup>
-        </LinearLayout>
-    </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 </com.google.android.material.card.MaterialCardView>

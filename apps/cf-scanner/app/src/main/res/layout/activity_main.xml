@@ -1,18 +1,63 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!--
+  Large collapsing title over a single scrolling list.
+
+  The title is long in both languages — "Cloudflare Clean IP Scanner" needs about
+  310dp at the old size against roughly 260dp of usable toolbar width, so a plain
+  single-line toolbar ellipsised it. A large title that collapses on scroll
+  solves that without shrinking the text to fit, and reclaims the space once the
+  user starts reading results.
+-->
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:fitsSystemWindows="true">
 
-    <com.google.android.material.appbar.MaterialToolbar
-        android:id="@+id/toolbar"
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appBar"
         android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        app:title="@string/app_name"
-        app:titleTextAppearance="@style/TextAppearance.CfScanner.TitleLarge"
-        app:menu="@menu/main_menu" />
+        android:layout_height="wrap_content"
+        android:background="?attr/colorSurface"
+        app:elevation="0dp"
+        app:liftOnScroll="false">
+
+        <com.google.android.material.appbar.CollapsingToolbarLayout
+            android:id="@+id/collapsingToolbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:collapsedTitleTextAppearance="@style/TextAppearance.CfScanner.ToolbarCollapsed"
+            app:expandedTitleTextAppearance="@style/TextAppearance.CfScanner.ToolbarExpanded"
+            app:expandedTitleMarginStart="20dp"
+            app:expandedTitleMarginEnd="20dp"
+            app:expandedTitleMarginBottom="16dp"
+            app:maxLines="2"
+            app:contentScrim="?attr/colorSurface"
+            app:statusBarScrim="?attr/colorSurface"
+            app:titleCollapseMode="scale"
+            app:layout_scrollFlags="scroll|exitUntilCollapsed|snap"
+            app:title="@string/screen_title">
+
+            <!--
+              Sized to hold two lines of the expanded title plus the toolbar. The
+              Persian title wraps differently from the English one, so this is set
+              from the taller case rather than measured per language.
+            -->
+            <Space
+                android:layout_width="match_parent"
+                android:layout_height="132dp" />
+
+            <com.google.android.material.appbar.MaterialToolbar
+                android:id="@+id/toolbar"
+                android:layout_width="match_parent"
+                android:layout_height="?attr/actionBarSize"
+                app:layout_collapseMode="pin"
+                app:menu="@menu/main_menu" />
+
+        </com.google.android.material.appbar.CollapsingToolbarLayout>
+
+    </com.google.android.material.appbar.AppBarLayout>
 
     <!--
       One RecyclerView for the whole screen: the controls, the placeholder, and
@@ -26,11 +71,11 @@
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/contentList"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
+        android:layout_height="match_parent"
         android:clipToPadding="false"
         android:paddingHorizontal="16dp"
-        android:paddingBottom="16dp"
-        android:scrollbars="vertical" />
+        android:paddingBottom="24dp"
+        android:scrollbars="vertical"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
-</LinearLayout>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

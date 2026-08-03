@@ -14,7 +14,7 @@
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:cardCornerRadius="20dp"
+        app:cardCornerRadius="@dimen/radius_card"
         app:cardElevation="0dp"
         app:strokeWidth="1dp"
         app:strokeColor="?attr/colorOutline"
@@ -24,7 +24,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="@dimen/card_padding">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -66,7 +66,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="12dp"
                     android:background="@drawable/bg_badge"
-                    android:paddingHorizontal="10dp"
+                    android:paddingHorizontal="@dimen/space_m"
                     android:paddingVertical="4dp"
                     android:textAppearance="@style/TextAppearance.CfScanner.LabelLarge"
                     android:textColor="@color/grade_excellent"
@@ -83,7 +83,7 @@
                 android:max="100"
                 android:progress="0"
                 app:trackCornerRadius="4dp"
-                app:trackThickness="6dp" />
+                app:trackThickness="@dimen/space_s" />
 
             <!--
               Explains a tested count that exceeded the requested one. Without it
@@ -93,7 +93,7 @@
                 android:id="@+id/expandedNote"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="@dimen/space_m"
                 android:textAppearance="@style/TextAppearance.CfScanner.BodySmall"
                 android:textColor="?attr/colorOnSurfaceVariant"
                 android:visibility="gone"
@@ -107,7 +107,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
-        app:cardCornerRadius="20dp"
+        app:cardCornerRadius="@dimen/radius_card"
         app:cardElevation="0dp"
         app:strokeWidth="1dp"
         app:strokeColor="?attr/colorOutline"
@@ -117,7 +117,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="@dimen/card_padding">
 
             <TextView
                 android:layout_width="match_parent"
@@ -165,7 +165,7 @@
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="@dimen/space_m"
                     android:hint="@string/label_sort">
 
                     <com.google.android.material.textfield.MaterialAutoCompleteTextView
@@ -181,7 +181,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
+                android:layout_marginTop="@dimen/space_l"
                 android:orientation="horizontal"
                 android:baselineAligned="false"
                 android:gravity="center_vertical">
@@ -223,7 +223,7 @@
         android:id="@+id/scanButton"
         android:layout_width="match_parent"
         android:layout_height="56dp"
-        android:layout_marginTop="14dp"
+        android:layout_marginTop="@dimen/space_l"
         android:text="@string/action_scan"
         android:textAppearance="@style/TextAppearance.CfScanner.TitleMedium"
         app:cornerRadius="16dp"
@@ -238,7 +238,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="20dp"
-        android:layout_marginBottom="10dp"
+        android:layout_marginBottom="@dimen/space_m"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:baselineAligned="false">
