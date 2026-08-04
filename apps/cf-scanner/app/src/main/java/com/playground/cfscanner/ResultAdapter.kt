@@ -117,19 +117,28 @@ class ResultAdapter(
         // shapes bolder could not fix a glyph that means nothing. The units are
         // shorter than the words they replace and say what they are.
         val bright = themeColour(ctx, com.google.android.material.R.attr.colorOnSurface)
-        holder.ping.text = value(Format.millis(r.avgMs()), bright)
-        holder.jitter.text = value(Format.millis(r.jitterMs()), bright)
+        val dim = themeColour(ctx, com.google.android.material.R.attr.colorOnSurfaceVariant)
+
+        holder.ping.text = value(
+            ctx.getString(R.string.chip_ping, Format.millis(r.avgMs())), bright)
+        holder.jitter.text = value(
+            ctx.getString(R.string.chip_jitter, Format.millis(r.jitterMs())), bright)
         holder.loss.text = value(
-            Format.percent(r.loss().toInt()),
+            ctx.getString(R.string.chip_loss, Format.percent(r.loss().toInt())),
             // Loss is the metric worth flagging; the others stay neutral.
             if (r.loss() > 0) ctx.getColor(R.color.grade_weak) else bright,
         )
 
-        // Throughput, when the scan measured it. The column is left blank rather
-        // than showing a zero, which would read as a real measurement.
+        // Throughput, when the scan measured it. An em dash rather than a blank:
+        // an empty cell at the end of the row reads as something missing, while
+        // a dash reads as nothing to report — which is the truth outside
+        // restricted-network mode, where no transfer is attempted.
         val hasSpeed = r.throughputBps > 0
-        holder.speed.text = if (hasSpeed) value(Format.speed(r.throughputBps), bright) else ""
-        holder.speed.visibility = if (hasSpeed) View.VISIBLE else View.INVISIBLE
+        holder.speed.text = if (hasSpeed) {
+            value(ctx.getString(R.string.chip_speed, Format.speed(r.throughputBps)), bright)
+        } else {
+            value(ctx.getString(R.string.metric_absent), dim)
+        }
 
         // The row is one accessibility stop announcing everything, rather than
         // a card plus six focusable chips that each said a value and did nothing.

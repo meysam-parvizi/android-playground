@@ -1,20 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  A plain toolbar over a single scrolling list.
+  A title row above a plain icon bar, over a single scrolling list.
 
-  This replaces a CollapsingToolbarLayout, which was the wrong pattern here. A
-  large collapsing title suits an article you read; this screen is a form you
-  operate. Two things went wrong with it:
+  The title used to sit inside the toolbar. Measured at 18sp the Persian name
+  needs 181dp; a 320dp screen leaves roughly 176dp inside the toolbar once the
+  two menu icons and the toolbar's own 16dp insets are taken out. Five short
+  pixels, so the last word dropped to a second line while the row still looked
+  half empty — the leftover space was spread across the insets, not gathered
+  where the text could use it.
 
-    - It only collapses when the scrolling child actually scrolls. The controls
-      live inside the list, so on a short result set nothing scrolled and the
-      132dp title sat there permanently.
-    - Even when it did collapse, the controls were behind a title the user had
-      to scroll past every time they wanted to change a setting.
-
-  A two-line title at 18sp holds the full name in both languages inside about
-  72dp, against 188dp for the collapsing version — 116dp returned to the list on
-  every screen, portrait and landscape, and it never moves.
+  On its own row the title has 288dp against 181dp needed, so it fits on one
+  line in both languages with room to spare.
 -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -26,38 +22,28 @@
     android:fitsSystemWindows="true">
 
     <!--
-      The title is a child TextView rather than app:title. Toolbar's built-in
-      title is single-line and exposes no attribute to change that; setting it
-      means reaching into the internal view after the title is applied, which
-      breaks quietly when the library changes. A child view makes maxLines an
-      ordinary attribute.
+      The bar carries the menu only. layoutDirection is set explicitly rather
+      than inherited: it places its own children, and relying on the theme
+      reaching it in time is what left the Persian layout drifting once before.
     -->
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="?attr/actionBarSize"
         android:layoutDirection="locale"
-        android:paddingVertical="@dimen/space_s"
-        app:contentInsetStartWithNavigation="0dp"
-        app:menu="@menu/main_menu">
+        app:menu="@menu/main_menu" />
 
-        <!--
-          layoutDirection on the toolbar is set explicitly rather than
-          inherited: it resolves its own child placement, and relying on the
-          theme reaching it in time is what left the Persian title drifting
-          left once before.
-        -->
-        <TextView
-            android:id="@+id/toolbarTitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/screen_title"
-            android:textAppearance="@style/TextAppearance.CfScanner.ToolbarTitle"
-            android:maxLines="2"
-            android:ellipsize="end"
-            android:textAlignment="viewStart" />
-
-    </com.google.android.material.appbar.MaterialToolbar>
+    <TextView
+        android:id="@+id/toolbarTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="@dimen/space_l"
+        android:paddingBottom="@dimen/space_m"
+        android:text="@string/screen_title"
+        android:textAppearance="@style/TextAppearance.CfScanner.ToolbarTitle"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:textAlignment="viewStart" />
 
     <!--
       One RecyclerView for the whole screen: the controls, the placeholder, and

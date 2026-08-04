@@ -250,7 +250,9 @@ That has a cost worth knowing about. Android may throttle network access for a b
 
 ### Title and spacing
 
-The toolbar shows the full name — "Cloudflare Clean IP Scanner", or «اسکنر آی‌پی تمیز کلادفلر» in Persian — across two lines at 18sp. Neither fits on one line at a readable size.
+The title sits on its own row beneath the icon bar, on one line at 18sp.
+
+It used to live inside the toolbar and wrapped there. Measured, the Persian name needs 181dp; a 320dp screen leaves roughly 176dp inside the toolbar once the two menu icons and its 16dp insets are taken out. Five pixels short — so the last word dropped to a second line while the row still looked half empty, because the leftover space was spread across the insets rather than gathered where the text could use it. On its own row it has 288dp against 181dp needed.
 
 It is a plain toolbar, not a collapsing one. A large collapsing title suits an article; this screen is a form. The collapsing version only shrank when the list scrolled, and the controls live *inside* the list, so on a short result set the title sat there permanently taking 188dp — and even when it did collapse, changing a setting meant scrolling past it first. A fixed two-line title costs about 72dp and never moves.
 
@@ -263,6 +265,8 @@ The title is a child `TextView` rather than `app:title`, because `Toolbar`'s bui
 The metrics sit in four equal-weight columns rather than in one run of text. Written inline as `Ping 41 · Jitter 3 · Loss 0%` the fields shift horizontally with every change in digit count, so comparing jitter down a ranked list means locating the label again on each row — precisely what a ranked list exists to avoid. Fixed columns line the values up, so one glance reads `3 → 9 → 22`.
 
 Each column carries its own unit rather than a word: `41 ms`, `±3 ms`, `0%`, `5.6 Mb/s`. Spelling out `Ping`, `Jitter`, `Loss` and `Speed` pushed the last column into an ellipsis.
+
+A column with nothing to report shows an em dash. Throughput is only measured in restricted-network mode, and a blank cell at the end of a row reads as something missing rather than something absent.
 
 Icons were tried first and abandoned. Ping and speed have symbols people recognise; jitter and loss do not, so those two were invented — and no amount of making them bolder fixes a glyph that means nothing to the reader. The units are shorter than the words anyway, and `ms` and `%` need no explanation.
 
@@ -377,7 +381,7 @@ Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner
 - Every push/PR touching `apps/cf-scanner/**` runs the unit tests, builds the APK, and uploads it as an artifact
 - Pushing a tag `cf-scanner-v<version>` publishes the APK as a GitHub Release asset
 
-Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.7.1**.
+Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.7.2**.
 
 ## Details
 
