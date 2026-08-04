@@ -1,0 +1,23 @@
+<!--
+  Bars of differing height: how much the round-trip time varies.
+
+  Material Symbols "graphic_eq", Apache-2.0. Taken from Google's own icon set rather
+  than drawn by hand: an earlier attempt invented shapes for metrics that have no
+  conventional symbol, and they read as grey smudges at this size.
+
+  The source viewBox is "0 -960 960 960". Android's vector format has no viewport
+  origin, so the group translate shifts the path into view instead of rewriting
+  every coordinate.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="18dp"
+    android:height="18dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960"
+    android:tint="?attr/colorOnSurfaceVariant">
+    <group android:translateY="960">
+        <path
+            android:fillColor="@android:color/white"
+            android:pathData="M280-240v-480h80v480h-80ZM440-80v-800h80v800h-80ZM120-400v-160h80v160h-80Zm480 160v-480h80v480h-80Zm160-160v-160h80v160h-80Z" />
+    </group>
+</vector>

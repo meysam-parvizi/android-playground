@@ -264,7 +264,11 @@ The title is a child `TextView` rather than `app:title`, because `Toolbar`'s bui
 
 The metrics sit in four equal-weight columns rather than in one run of text. Written inline as `Ping 41 · Jitter 3 · Loss 0%` the fields shift horizontally with every change in digit count, so comparing jitter down a ranked list means locating the label again on each row — precisely what a ranked list exists to avoid. Fixed columns line the values up, so one glance reads `3 → 9 → 22`.
 
-Each column carries its own unit rather than a word: `41 ms`, `±3 ms`, `0%`, `5.6 Mb/s`. Spelling out `Ping`, `Jitter`, `Loss` and `Speed` pushed the last column into an ellipsis.
+Each column has an icon above it naming the metric, with the unit beside the number: `41 ms`, `±3 ms`, `0%`, `5.6 Mb/s`. Units alone were not enough — `ms` appears twice, so ping and jitter were indistinguishable without already knowing the column order.
+
+The icons are stacked above the values rather than placed beside them. Beside the number an icon competes with Persian digits for width and sits inside the same bidirectional run; above it, the two never interact.
+
+They come from Google's Material Symbols — `network_ping`, `graphic_eq`, `warning`, `speed` — not drawn by hand. An earlier attempt invented pictograms for jitter and loss, which have no conventional symbol, and no amount of making them bolder fixed a glyph that meant nothing. The four silhouettes are deliberately different in kind: an arrow, bars, a triangle, a dial.
 
 A column with nothing to report shows an em dash. Throughput is only measured in restricted-network mode, and a blank cell at the end of a row reads as something missing rather than something absent.
 
@@ -381,7 +385,7 @@ Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner
 - Every push/PR touching `apps/cf-scanner/**` runs the unit tests, builds the APK, and uploads it as an artifact
 - Pushing a tag `cf-scanner-v<version>` publishes the APK as a GitHub Release asset
 
-Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.7.2**.
+Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.8.0**.
 
 ## Details
 
