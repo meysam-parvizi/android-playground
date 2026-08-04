@@ -5,14 +5,17 @@
   The title is long in both languages — "Cloudflare Clean IP Scanner" needs about
   310dp at the old size against roughly 260dp of usable toolbar width, so a plain
   single-line toolbar ellipsised it. A large title that collapses on scroll
-  solves that without shrinking the text to fit, and reclaims the space once the
-  user starts reading results.
+  solves that without shrinking the text to fit.
+
+  See layout-land/ for the short variant: at 132dp the expanded title consumed
+  more than half a landscape viewport, pushing the settings fields off-screen.
 -->
 <androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:layoutDirection="locale"
     android:fitsSystemWindows="true">
 
     <com.google.android.material.appbar.AppBarLayout
@@ -20,18 +23,29 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="?attr/colorSurface"
+        android:layoutDirection="locale"
         app:elevation="0dp"
         app:liftOnScroll="false">
 
+        <!--
+          layoutDirection and the two title gravities are set explicitly rather
+          than inherited. CollapsingToolbarLayout draws its title through its own
+          text helper instead of a child TextView, and resolves the gravity
+          during measurement — so relying on the theme's direction reaching it in
+          time left the Persian title drifting to the left.
+        -->
         <com.google.android.material.appbar.CollapsingToolbarLayout
             android:id="@+id/collapsingToolbar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layoutDirection="locale"
+            app:collapsedTitleGravity="start|center_vertical"
+            app:expandedTitleGravity="start|bottom"
             app:collapsedTitleTextAppearance="@style/TextAppearance.CfScanner.ToolbarCollapsed"
             app:expandedTitleTextAppearance="@style/TextAppearance.CfScanner.ToolbarExpanded"
-            app:expandedTitleMarginStart="20dp"
-            app:expandedTitleMarginEnd="20dp"
-            app:expandedTitleMarginBottom="16dp"
+            app:expandedTitleMarginStart="@dimen/space_l"
+            app:expandedTitleMarginEnd="@dimen/space_l"
+            app:expandedTitleMarginBottom="@dimen/space_l"
             app:maxLines="2"
             app:contentScrim="?attr/colorSurface"
             app:statusBarScrim="?attr/colorSurface"
@@ -40,18 +54,19 @@
             app:title="@string/screen_title">
 
             <!--
-              Sized to hold two lines of the expanded title plus the toolbar. The
-              Persian title wraps differently from the English one, so this is set
-              from the taller case rather than measured per language.
+              Holds two lines of the expanded title plus the toolbar. Sized from
+              the taller case, since the Persian title wraps differently from the
+              English one.
             -->
             <Space
                 android:layout_width="match_parent"
-                android:layout_height="132dp" />
+                android:layout_height="@dimen/title_height" />
 
             <com.google.android.material.appbar.MaterialToolbar
                 android:id="@+id/toolbar"
                 android:layout_width="match_parent"
                 android:layout_height="?attr/actionBarSize"
+                android:layoutDirection="locale"
                 app:layout_collapseMode="pin"
                 app:menu="@menu/main_menu" />
 
@@ -73,8 +88,8 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipToPadding="false"
-        android:paddingHorizontal="16dp"
-        android:paddingBottom="24dp"
+        android:paddingHorizontal="@dimen/space_l"
+        android:paddingBottom="@dimen/space_xl"
         android:scrollbars="vertical"
         app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 

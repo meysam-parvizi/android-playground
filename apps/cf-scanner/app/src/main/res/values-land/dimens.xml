@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Landscape overrides.
+
+  A phone in landscape is roughly 360dp tall. The portrait title area claims
+  132dp on top of a 56dp toolbar — 52% of the viewport — which pushed the scan
+  settings fields off-screen entirely. Collapsing the expanded title away leaves
+  the pinned toolbar carrying the name and gives the list the space it needs.
+-->
+<resources>
+    <dimen name="title_height">0dp</dimen>
+</resources>

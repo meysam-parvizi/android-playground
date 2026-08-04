@@ -36,6 +36,7 @@ class ResultAdapter(
         val ping: TextView = view.findViewById(R.id.rowPing)
         val jitter: TextView = view.findViewById(R.id.rowJitter)
         val loss: TextView = view.findViewById(R.id.rowLoss)
+        val speed: TextView = view.findViewById(R.id.rowSpeed)
     }
 
     /**
@@ -132,6 +133,19 @@ class ResultAdapter(
             if (r.loss() > 0) ctx.getColor(R.color.grade_weak) else bright,
         )
 
+        // Throughput, when the scan measured it. Blank outside restricted-network
+        // mode rather than showing a zero, which would read as a real result.
+        if (r.throughputBps > 0) {
+            val speedValue = Format.speed(r.throughputBps)
+            holder.speed.text = metric(
+                ctx.getString(R.string.chip_speed, speedValue),
+                speedValue,
+                bright,
+            )
+        } else {
+            holder.speed.text = ""
+        }
+
         // The row is one accessibility stop announcing everything, rather than
         // a card plus six focusable chips that each said a value and did nothing.
         holder.itemView.contentDescription = buildString {
@@ -146,6 +160,10 @@ class ResultAdapter(
             append(holder.jitter.text)
             append(", ")
             append(holder.loss.text)
+            if (holder.speed.text.isNotEmpty()) {
+                append(", ")
+                append(holder.speed.text)
+            }
             // The grade carries a ⚡ for WebSocket support, which a screen
             // reader does not announce, so it is stated in words here.
             if (r.wsOk) {

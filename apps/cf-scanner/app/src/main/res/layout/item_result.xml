@@ -72,9 +72,27 @@
             android:singleLine="true"
             android:ellipsize="end"
             app:layout_constraintStart_toEndOf="@id/rowRank"
-            app:layout_constraintEnd_toStartOf="@id/rowScore"
+            app:layout_constraintEnd_toStartOf="@id/rowContext"
             app:layout_constraintTop_toTopOf="@id/rowRank"
             app:layout_constraintHorizontal_bias="0" />
+
+        <!--
+          Where the edge answered from. Three characters, so it costs almost
+          nothing on the top line, and it keeps the fourth metric column free for
+          throughput.
+        -->
+        <TextView
+            android:id="@+id/rowContext"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/space_s"
+            android:textAppearance="@style/TextAppearance.CfScanner.Label"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:singleLine="true"
+            android:ellipsize="end"
+            app:layout_constraintStart_toEndOf="@id/rowIp"
+            app:layout_constraintEnd_toStartOf="@id/rowScore"
+            app:layout_constraintBaseline_toBaselineOf="@id/rowIp" />
 
         <!-- Score and grade, coloured by band. -->
         <TextView
@@ -130,19 +148,23 @@
             android:singleLine="true"
             android:ellipsize="end"
             app:layout_constraintStart_toEndOf="@id/rowJitter"
-            app:layout_constraintEnd_toStartOf="@id/rowContext"
+            app:layout_constraintEnd_toStartOf="@id/rowSpeed"
             app:layout_constraintTop_toTopOf="@id/rowPing"
             app:layout_constraintHorizontal_weight="1" />
 
         <!--
-          Where the edge is, as a fourth column rather than on the top line.
-          Address, location and score together needed about 273dp of the 248dp
-          available on a 360dp phone, so something had to move: three fields on
-          one line simply does not fit, and shortening the text further only
-          hid information.
+          Throughput, as the fourth column.
+
+          It was briefly removed when it shared a cell with the location and the
+          two together truncated. Given its own column it fits with room to
+          spare, and it belongs here: a user choosing between two addresses with
+          similar latency decides on this number.
+
+          Blank when the scan did not measure it, which is any run outside
+          restricted-network mode.
         -->
         <TextView
-            android:id="@+id/rowContext"
+            android:id="@+id/rowSpeed"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:textAppearance="@style/TextAppearance.CfScanner.Label"

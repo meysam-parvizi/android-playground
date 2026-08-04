@@ -82,7 +82,7 @@ Material 3, with light and dark themes and full RTL layout. One screen, everythi
 - **Status card** — current state, live progress bar, and a green badge counting healthy finds
 - **Settings card** — how many addresses to test, sort criterion, and a **restricted-network** switch carrying a one-line explanation of what it changes
 - **Scan / Stop** — one large primary button that swaps label and icon with state
-- **Results** — one card per IP, two lines of fixed shape: the address and its score on top, then four equal-weight columns of ping, jitter, loss and location. Values are lifted to the surface colour while their labels stay dim, so the numbers carry the eye down the list. Loss is tinted when non-zero, and a mark beside the grade shows WebSocket carry.
+- **Results** — one card per IP, two lines of fixed shape: the address, its datacenter and its score on top, then four equal-weight columns of ping, jitter, loss and throughput. Values are lifted to the surface colour while their labels stay dim, so the numbers carry the eye down the list. Loss is tinted when non-zero, and a mark beside the grade shows WebSocket carry.
 - **Empty state** — distinguishes "not scanned yet" from "scan finished, nothing found", each with a useful hint
 - **Copy** puts a bare list of addresses on the clipboard — one IP per line, best first, nothing else:
 
@@ -252,6 +252,8 @@ That has a cost worth knowing about. Android may throttle network access for a b
 
 The toolbar shows the full name — "Cloudflare Clean IP Scanner", or «اسکنر آی‌پی تمیز کلادفلر» in Persian. Both are too long for a single-line bar: the English one needs roughly 310dp against about 260dp of usable width. It is therefore a large title across two lines that collapses on scroll, which reclaims the space once the user is reading results. `app_name` stays short and separate, since it labels the launcher icon where a long title is simply truncated.
 
+In landscape the expanded title is suppressed entirely (`values-land/dimens.xml`). A phone on its side is about 360dp tall, and a 132dp title over a 56dp toolbar claimed more than half of that — enough to push the scan settings below the fold. The pinned toolbar still carries the name.
+
 `dimens.xml` holds one 4dp spacing scale and one radius scale. The layouts had accumulated 1, 2, 4, 6, 8, 10, 12, 14, 16, 20, 24 and 28dp values and two different card radii; individually each looked fine, but nothing lined up between one card and the next.
 
 ### Reading a result at a glance
@@ -260,7 +262,9 @@ The metrics sit in four equal-weight columns rather than in one run of text. Wri
 
 Values are drawn in the surface colour and their labels left dim, a 1.77x luminance step resolved from the theme rather than added to the palette. Without that contrast `Ping 41` reads as one undifferentiated blob at label size.
 
-Two things were moved to make the row fit a 360dp phone. WebSocket carry became a mark beside the grade — it is a pass/fail capability rather than a measurement — and is still spoken in full for screen readers, since the glyph itself is silent. Throughput left the row: `AMS · Speed 2.1 Mbit` needs about 110dp in a 62dp column, it is the least-consulted figure there, and it already does its real work as a gate that keeps stalling addresses out of the list entirely.
+WebSocket carry is a mark beside the grade rather than a column — it is a pass/fail capability, not a measurement — and is still spoken in full for screen readers, since the glyph itself is silent.
+
+Throughput was briefly dropped when it shared a cell with the datacenter code and the pair truncated. That was the wrong call: it is a number people choose on. Given its own column it fits with room to spare, and the three-character datacenter code costs almost nothing on the top line beside the address.
 
 ### Accessibility
 
@@ -365,7 +369,7 @@ Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner
 - Every push/PR touching `apps/cf-scanner/**` runs the unit tests, builds the APK, and uploads it as an artifact
 - Pushing a tag `cf-scanner-v<version>` publishes the APK as a GitHub Release asset
 
-Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.6.0**.
+Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.6.1**.
 
 ## Details
 
