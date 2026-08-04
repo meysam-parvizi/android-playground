@@ -1,78 +1,63 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Large collapsing title over a single scrolling list.
+  A plain toolbar over a single scrolling list.
 
-  The title is long in both languages — "Cloudflare Clean IP Scanner" needs about
-  310dp at the old size against roughly 260dp of usable toolbar width, so a plain
-  single-line toolbar ellipsised it. A large title that collapses on scroll
-  solves that without shrinking the text to fit.
+  This replaces a CollapsingToolbarLayout, which was the wrong pattern here. A
+  large collapsing title suits an article you read; this screen is a form you
+  operate. Two things went wrong with it:
 
-  See layout-land/ for the short variant: at 132dp the expanded title consumed
-  more than half a landscape viewport, pushing the settings fields off-screen.
+    - It only collapses when the scrolling child actually scrolls. The controls
+      live inside the list, so on a short result set nothing scrolled and the
+      132dp title sat there permanently.
+    - Even when it did collapse, the controls were behind a title the user had
+      to scroll past every time they wanted to change a setting.
+
+  A two-line title at 18sp holds the full name in both languages inside about
+  72dp, against 188dp for the collapsing version — 116dp returned to the list on
+  every screen, portrait and landscape, and it never moves.
 -->
-<androidx.coordinatorlayout.widget.CoordinatorLayout
+<LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     android:layoutDirection="locale"
     android:fitsSystemWindows="true">
 
-    <com.google.android.material.appbar.AppBarLayout
-        android:id="@+id/appBar"
+    <!--
+      The title is a child TextView rather than app:title. Toolbar's built-in
+      title is single-line and exposes no attribute to change that; setting it
+      means reaching into the internal view after the title is applied, which
+      breaks quietly when the library changes. A child view makes maxLines an
+      ordinary attribute.
+    -->
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="?attr/colorSurface"
         android:layoutDirection="locale"
-        app:elevation="0dp"
-        app:liftOnScroll="false">
+        android:paddingVertical="@dimen/space_s"
+        app:contentInsetStartWithNavigation="0dp"
+        app:menu="@menu/main_menu">
 
         <!--
-          layoutDirection and the two title gravities are set explicitly rather
-          than inherited. CollapsingToolbarLayout draws its title through its own
-          text helper instead of a child TextView, and resolves the gravity
-          during measurement — so relying on the theme's direction reaching it in
-          time left the Persian title drifting to the left.
+          layoutDirection on the toolbar is set explicitly rather than
+          inherited: it resolves its own child placement, and relying on the
+          theme reaching it in time is what left the Persian title drifting
+          left once before.
         -->
-        <com.google.android.material.appbar.CollapsingToolbarLayout
-            android:id="@+id/collapsingToolbar"
-            android:layout_width="match_parent"
+        <TextView
+            android:id="@+id/toolbarTitle"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layoutDirection="locale"
-            app:collapsedTitleGravity="start|center_vertical"
-            app:expandedTitleGravity="start|bottom"
-            app:collapsedTitleTextAppearance="@style/TextAppearance.CfScanner.ToolbarCollapsed"
-            app:expandedTitleTextAppearance="@style/TextAppearance.CfScanner.ToolbarExpanded"
-            app:expandedTitleMarginStart="@dimen/space_l"
-            app:expandedTitleMarginEnd="@dimen/space_l"
-            app:expandedTitleMarginBottom="@dimen/space_l"
-            app:maxLines="2"
-            app:contentScrim="?attr/colorSurface"
-            app:statusBarScrim="?attr/colorSurface"
-            app:titleCollapseMode="scale"
-            app:layout_scrollFlags="scroll|exitUntilCollapsed|snap"
-            app:title="@string/screen_title">
+            android:text="@string/screen_title"
+            android:textAppearance="@style/TextAppearance.CfScanner.ToolbarTitle"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:textAlignment="viewStart" />
 
-            <!--
-              Holds two lines of the expanded title plus the toolbar. Sized from
-              the taller case, since the Persian title wraps differently from the
-              English one.
-            -->
-            <Space
-                android:layout_width="match_parent"
-                android:layout_height="@dimen/title_height" />
-
-            <com.google.android.material.appbar.MaterialToolbar
-                android:id="@+id/toolbar"
-                android:layout_width="match_parent"
-                android:layout_height="?attr/actionBarSize"
-                android:layoutDirection="locale"
-                app:layout_collapseMode="pin"
-                app:menu="@menu/main_menu" />
-
-        </com.google.android.material.appbar.CollapsingToolbarLayout>
-
-    </com.google.android.material.appbar.AppBarLayout>
+    </com.google.android.material.appbar.MaterialToolbar>
 
     <!--
       One RecyclerView for the whole screen: the controls, the placeholder, and
@@ -86,11 +71,11 @@
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/contentList"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:clipToPadding="false"
         android:paddingHorizontal="@dimen/space_l"
         android:paddingBottom="@dimen/space_xl"
-        android:scrollbars="vertical"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+        android:scrollbars="vertical" />
 
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+</LinearLayout>

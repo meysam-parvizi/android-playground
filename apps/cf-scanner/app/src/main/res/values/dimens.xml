@@ -37,15 +37,5 @@
     <!-- Minimum touch target, per the accessibility guidance. -->
     <dimen name="touch_target">48dp</dimen>
 
-    <!--
-      Height of the expanded title area, above the toolbar.
-
-      Two lines of the title plus its bottom margin. Sized from the taller case,
-      since the Persian and English titles wrap differently.
-
-      values-land overrides this to 0: at 132dp the expanded title took more than
-      half a landscape viewport, and the settings fields ended up below the fold.
-    -->
-    <dimen name="title_height">132dp</dimen>
 
 </resources>

@@ -82,7 +82,7 @@ Material 3, with light and dark themes and full RTL layout. One screen, everythi
 - **Status card** — current state, live progress bar, and a green badge counting healthy finds
 - **Settings card** — how many addresses to test, sort criterion, and a **restricted-network** switch carrying a one-line explanation of what it changes
 - **Scan / Stop** — one large primary button that swaps label and icon with state
-- **Results** — one card per IP, two lines of fixed shape: the address, its datacenter and its score on top, then four equal-weight columns of ping, jitter, loss and throughput, each marked by an icon rather than a word. The About screen names them. Values are lifted to the surface colour while their labels stay dim, so the numbers carry the eye down the list. Loss is tinted when non-zero, and a mark beside the grade shows WebSocket carry.
+- **Results** — one card per IP, two lines of fixed shape: the address, its datacenter and its score on top, then four equal-weight columns carrying their own units — `41 ms`, `±3 ms`, `0%`, `5.6 Mb/s`. Values are lifted to the surface colour while their labels stay dim, so the numbers carry the eye down the list. Loss is tinted when non-zero, and a mark beside the grade shows WebSocket carry.
 - **Empty state** — distinguishes "not scanned yet" from "scan finished, nothing found", each with a useful hint
 - **Copy** puts a bare list of addresses on the clipboard — one IP per line, best first, nothing else:
 
@@ -250,17 +250,23 @@ That has a cost worth knowing about. Android may throttle network access for a b
 
 ### Title and spacing
 
-The toolbar shows the full name — "Cloudflare Clean IP Scanner", or «اسکنر آی‌پی تمیز کلادفلر» in Persian. Both are too long for a single-line bar: the English one needs roughly 310dp against about 260dp of usable width. It is therefore a large title across two lines that collapses on scroll, which reclaims the space once the user is reading results. `app_name` stays short and separate, since it labels the launcher icon where a long title is simply truncated.
+The toolbar shows the full name — "Cloudflare Clean IP Scanner", or «اسکنر آی‌پی تمیز کلادفلر» in Persian — across two lines at 18sp. Neither fits on one line at a readable size.
 
-In landscape the expanded title is suppressed entirely (`values-land/dimens.xml`). A phone on its side is about 360dp tall, and a 132dp title over a 56dp toolbar claimed more than half of that — enough to push the scan settings below the fold. The pinned toolbar still carries the name.
+It is a plain toolbar, not a collapsing one. A large collapsing title suits an article; this screen is a form. The collapsing version only shrank when the list scrolled, and the controls live *inside* the list, so on a short result set the title sat there permanently taking 188dp — and even when it did collapse, changing a setting meant scrolling past it first. A fixed two-line title costs about 72dp and never moves.
 
-`dimens.xml` holds one 4dp spacing scale and one radius scale. The layouts had accumulated 1, 2, 4, 6, 8, 10, 12, 14, 16, 20, 24 and 28dp values and two different card radii; individually each looked fine, but nothing lined up between one card and the next.
+The title is a child `TextView` rather than `app:title`, because `Toolbar`'s built-in title is single-line with no attribute to change that.
+
+`dimens.xml` holds one 4dp spacing scale and one radius scale.
 
 ### Reading a result at a glance
 
 The metrics sit in four equal-weight columns rather than in one run of text. Written inline as `Ping 41 · Jitter 3 · Loss 0%` the fields shift horizontally with every change in digit count, so comparing jitter down a ranked list means locating the label again on each row — precisely what a ranked list exists to avoid. Fixed columns line the values up, so one glance reads `3 → 9 → 22`.
 
-Each column is marked by an icon rather than a word. `Ping`, `Jitter`, `Loss` and `Speed` spelled out cost more width than the values they described and pushed the last column into an ellipsis — twice, because estimating text width by character count kept landing just inside the column and just outside reality. An icon is a fixed 16dp regardless of language. The About screen names each one.
+Each column carries its own unit rather than a word: `41 ms`, `±3 ms`, `0%`, `5.6 Mb/s`. Spelling out `Ping`, `Jitter`, `Loss` and `Speed` pushed the last column into an ellipsis.
+
+Icons were tried first and abandoned. Ping and speed have symbols people recognise; jitter and loss do not, so those two were invented — and no amount of making them bolder fixes a glyph that means nothing to the reader. The units are shorter than the words anyway, and `ms` and `%` need no explanation.
+
+The width problem took three attempts because I kept estimating text width by character count instead of measuring it. The estimate landed just inside the column and just outside reality every time. The columns are now sized against measured widths at 320dp, the narrowest screen in real use, where the longest value has 15dp of slack.
 
 Values take the surface colour against the dim icon, so the numbers carry the eye down the list.
 
@@ -371,7 +377,7 @@ Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner
 - Every push/PR touching `apps/cf-scanner/**` runs the unit tests, builds the APK, and uploads it as an artifact
 - Pushing a tag `cf-scanner-v<version>` publishes the APK as a GitHub Release asset
 
-Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.6.2**.
+Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.7.0**.
 
 ## Details
 

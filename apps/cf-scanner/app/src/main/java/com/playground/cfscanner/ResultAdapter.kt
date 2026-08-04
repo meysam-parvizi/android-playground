@@ -111,10 +111,11 @@ class ResultAdapter(
         holder.context.text = context
         holder.context.visibility = if (context.isEmpty()) View.GONE else View.VISIBLE
 
-        // Four fixed columns, each labelled by an icon rather than a word.
-        // 'Ping'/'Jitter'/'Loss'/'Speed' repeated on every one of hundreds of
-        // rows cost more width than the values themselves and pushed the last
-        // column into an ellipsis. The icons are explained in the About screen.
+        // Four fixed columns carrying their own unit — 41 ms, ±3 ms, 0%,
+        // 5.6 Mb/s. An earlier attempt used invented pictograms for these, but
+        // jitter and loss have no symbol anyone recognises, and making the
+        // shapes bolder could not fix a glyph that means nothing. The units are
+        // shorter than the words they replace and say what they are.
         val bright = themeColour(ctx, com.google.android.material.R.attr.colorOnSurface)
         holder.ping.text = value(Format.millis(r.avgMs()), bright)
         holder.jitter.text = value(Format.millis(r.jitterMs()), bright)

@@ -96,25 +96,19 @@
     </style>
 
     <!--
-      Toolbar title styles.
+      Toolbar title.
 
-      The screen title is long in both languages, so it is shown large across two
-      lines when the bar is expanded and shrinks to fit on one line when
-      collapsed. A single fixed size would have to be small enough for the
-      collapsed state, which wastes the expanded space.
+      Two lines at 18sp: the full name needs about 282dp in English and 251dp in
+      Persian against roughly 232dp of toolbar width, so it will not fit on one
+      line at any size worth reading. maxLines is set in code, since
+      MaterialToolbar does not expose it as an attribute.
     -->
-    <style name="TextAppearance.CfScanner.ToolbarExpanded" parent="TextAppearance.Material3.HeadlineMedium">
+    <style name="TextAppearance.CfScanner.ToolbarTitle" parent="TextAppearance.Material3.TitleMedium">
         <item name="fontFamily">@font/vazirmatn</item>
         <item name="android:fontFamily">@font/vazirmatn</item>
+        <item name="android:textSize">18sp</item>
         <item name="android:textColor">?attr/colorOnSurface</item>
-        <!-- Tightened at display size; Vazirmatn sets wide by default. -->
-        <item name="android:letterSpacing">-0.015</item>
-    </style>
-
-    <style name="TextAppearance.CfScanner.ToolbarCollapsed" parent="TextAppearance.Material3.TitleMedium">
-        <item name="fontFamily">@font/vazirmatn</item>
-        <item name="android:fontFamily">@font/vazirmatn</item>
-        <item name="android:textColor">?attr/colorOnSurface</item>
+        <item name="android:letterSpacing">-0.01</item>
     </style>
 
     <style name="TextAppearance.CfScanner.TitleLarge" parent="TextAppearance.Material3.TitleLarge">
