@@ -208,6 +208,21 @@ open class Prober(
             result
         }
 
+    /**
+     * Benchmarks an already-discovered IP, overwriting its throughput figures.
+     *
+     * Separate from [probe] because it is a different question asked at a
+     * different time: discovery decides whether an IP works, this measures how
+     * fast it is once nothing else is competing for the radio. Reuses the SNI
+     * that worked during discovery so the benchmark exercises the same path.
+     */
+    open suspend fun measureSpeed(result: ScanResult, bytes: Int) {
+        if (bytes <= 0) return
+        val sni = result.attemptResults.lastOrNull { it.coreSuccess }?.sni
+            ?: SniStrategy.order(result.ip, 0).first()
+        probeDownload(result.ip, result.port, sni, result, bytes)
+    }
+
     private fun nextInterAttemptDelayMs(): Int {
         val min = interAttemptDelayMinMs.coerceAtLeast(0)
         val max = interAttemptDelayMaxMs.coerceAtLeast(min)
@@ -449,8 +464,13 @@ open class Prober(
      * Sets [ScanResult.downloadTested] so a failure is distinguishable from
      * never having tried, and records throughput on success.
      */
-    private suspend fun probeDownload(ip: String, port: Int, sni: String, result: ScanResult) =
-        withContext(Dispatchers.IO) {
+    private suspend fun probeDownload(
+        ip: String,
+        port: Int,
+        sni: String,
+        result: ScanResult,
+        bytes: Int = downloadBytes,
+    ) = withContext(Dispatchers.IO) {
             result.downloadTested = true
             var socket: Socket? = null
             var tls: SSLSocket? = null
@@ -464,7 +484,7 @@ open class Prober(
                 secure.startHandshake()
 
                 val request = buildString {
-                    append("GET /__down?bytes=$downloadBytes HTTP/1.1\r\n")
+                    append("GET /__down?bytes=$bytes HTTP/1.1\r\n")
                     append("Host: speed.cloudflare.com\r\n")
                     append("User-Agent: Mozilla/5.0\r\n")
                     append("Accept: */*\r\n")
@@ -488,7 +508,7 @@ open class Prober(
                     val n = input.read(buf)
                     if (n <= 0) break
                     total += n
-                    if (total >= downloadBytes) break
+                    if (total >= bytes) break
                 }
                 val elapsedMs = (System.nanoTime() - started) / 1_000_000
                 result.downloadedBytes = total

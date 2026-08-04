@@ -178,6 +178,32 @@
                         android:inputType="none"
                         tools:ignore="LabelFor,SpeakableTextPresentCheck" />
                 </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/speedField"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/space_m"
+                    android:hint="@string/label_speed_test">
+
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                        android:id="@+id/speedInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:focusable="false"
+                        android:inputType="none"
+                        tools:ignore="LabelFor,SpeakableTextPresentCheck" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:id="@+id/speedHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/space_s"
+                    android:text="@string/hint_speed_test"
+                    android:textAppearance="@style/TextAppearance.CfScanner.BodySmall"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
             </LinearLayout>
 
             <LinearLayout

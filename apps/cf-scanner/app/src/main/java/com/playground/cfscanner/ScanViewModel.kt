@@ -86,6 +86,8 @@ class ScanViewModel : ViewModel() {
 
     fun setIranMode(enabled: Boolean) = update { it.copy(iranMode = enabled) }
 
+    fun setSpeedIndex(index: Int) = update { it.copy(speedIndex = index) }
+
     fun setSort(index: Int) {
         update { it.copy(sortIndex = index) }
         // User-driven, so re-rank at once rather than after the debounce.
@@ -123,7 +125,13 @@ class ScanViewModel : ViewModel() {
             )
         }
 
-        val config = ScanConfig.forMode(count, iranMode = _state.value.iranMode)
+        val config = ScanConfig.forMode(
+            count,
+            iranMode = _state.value.iranMode,
+            speedTopN = SpeedTopNOptions.VALUES.getOrElse(_state.value.speedIndex) {
+                SpeedTopNOptions.VALUES[SpeedTopNOptions.DEFAULT_INDEX]
+            },
+        )
 
         scanJob = viewModelScope.launch {
             try {

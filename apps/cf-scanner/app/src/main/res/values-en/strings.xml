@@ -15,6 +15,10 @@
     <string name="section_settings">Scan settings</string>
     <string name="label_count">How many IPs to test?</string>
     <string name="label_count_helper">Chosen at random from Cloudflare\'s ranges</string>
+    <string name="label_speed_test">Speed test</string>
+    <string name="hint_speed_test">Measures real download speed on the best results after the scan, a few at a time</string>
+    <string name="speed_test_off">Off</string>
+    <string name="speed_test_top">Top %1$s</string>
     <string name="label_sort">Sort results by</string>
     <string name="label_iran_mode">Restricted network mode</string>
     <string name="label_iran_mode_hint">Tests connection stability and \u2068WebSocket\u2069; more accurate but a little slower</string>

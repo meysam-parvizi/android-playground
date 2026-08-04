@@ -86,6 +86,13 @@ data class HeaderState(
      */
     val countIndex: Int = 0,
     val sortIndex: Int = 0,
+    /**
+     * Index into the speed-test shortlist options.
+     *
+     * Defaults to Top 10: enough to pick a winner on measured throughput without
+     * turning a finished scan into a second long wait.
+     */
+    val speedIndex: Int = SpeedTopNOptions.DEFAULT_INDEX,
     val iranMode: Boolean = true,
     /**
      * How many addresses the user asked for, as opposed to how many ended up

@@ -67,6 +67,15 @@ data class ScanConfig(
      */
     val downloadBytes: Int = 0,
     /**
+     * Second-stage benchmark: how many top results to measure, how much to pull
+     * from each, how many at a time, and how many retries a failed measurement
+     * gets. [speedTopN] of 0 disables the stage.
+     */
+    val speedTopN: Int = 0,
+    val speedTestBytes: Int = 512 * 1024,
+    val speedConcurrency: Int = 2,
+    val speedRetries: Int = 1,
+    /**
      * Upper bound on extra probes added by neighbour expansion, as a fraction of
      * [targetCount].
      *
@@ -94,8 +103,13 @@ data class ScanConfig(
          * means the profile is one reviewable place, and the defaults above
          * cannot silently disagree with what is actually used.
          */
-        fun forMode(count: Int, iranMode: Boolean): ScanConfig = ScanConfig(
+        fun forMode(
+            count: Int,
+            iranMode: Boolean,
+            speedTopN: Int = SpeedTopNOptions.VALUES[SpeedTopNOptions.DEFAULT_INDEX],
+        ): ScanConfig = ScanConfig(
             targetCount = count,
+            speedTopN = speedTopN,
             tries = if (iranMode) RESTRICTED_TRIES else STANDARD_TRIES,
             interAttemptDelayMinMs = if (iranMode) RESTRICTED_JITTER_MIN_MS else 0,
             interAttemptDelayMaxMs = if (iranMode) RESTRICTED_JITTER_MAX_MS else 0,
@@ -108,7 +122,7 @@ data class ScanConfig(
             // Transfer a small payload on a restricted network: an IP that
             // handshakes cleanly and then stalls on real data is worse than
             // useless, and only moving bytes reveals it.
-            downloadBytes = if (iranMode) RESTRICTED_DOWNLOAD_BYTES else 0,
+            downloadBytes = if (iranMode) DISCOVERY_GATE_BYTES else 0,
         )
 
         /** Long enough for a DPI reset to show up on a filtered network. */
@@ -117,8 +131,16 @@ data class ScanConfig(
         /** Enough to catch an obviously dead connection without slowing the scan. */
         const val STANDARD_IDLE_HOLD_MS = 1200
 
-        /** Large enough to expose a stall, small enough not to lengthen the scan. */
-        const val RESTRICTED_DOWNLOAD_BYTES = 128 * 1024
+        /**
+         * Payload pulled per candidate during discovery.
+         *
+         * Only large enough to prove the data path carries real bytes rather
+         * than just completing handshakes. Downloading a benchmark-sized payload
+         * here would cost 16x the data and still measure contention rather than
+         * speed, because discovery runs at full concurrency — so the real
+         * measurement happens in [SpeedPhase] instead.
+         */
+        const val DISCOVERY_GATE_BYTES = 8 * 1024
         const val STANDARD_TRIES = 3
         const val RESTRICTED_TRIES = 4
         const val RESTRICTED_JITTER_MIN_MS = 50
@@ -140,6 +162,14 @@ data class ScanProgress(
     val healthy: Int,
     val currentIp: String,
 )
+
+object SpeedTopNOptions {
+    /** Shortlist sizes offered in settings; 0 turns the benchmark off. */
+    val VALUES: List<Int> = listOf(0, 5, 10, 20, 50)
+
+    /** Ten: enough to pick a winner, short enough not to double the scan. */
+    const val DEFAULT_INDEX = 2
+}
 
 /**
  * Builds the real prober for a config.
@@ -275,6 +305,14 @@ class ScanEngine(
         deliver { onProgress(ScanProgress(probed.get(), planned.get(), healthyCount.get(), "")) }
 
         val gathered = results.toList()
+
+        // Second stage: measure real throughput on the best few, now that
+        // nothing else is competing for bandwidth.
+        runSpeedPhase(
+            prober, gathered, onProgress,
+            probed.get(), planned.get(), healthyCount.get(),
+        )
+
         val ranked = withContext(Dispatchers.Default) {
             Ranking.sort(gathered, SortBy.SCORE)
         }
@@ -287,6 +325,47 @@ class ScanEngine(
             everyProbeFailed = gathered.isNotEmpty() &&
                 totalFailures.get() >= gathered.size,
         )
+    }
+
+    /**
+     * Measures throughput on the shortlist, a few IPs at a time.
+     *
+     * Deliberately sequential-ish and after discovery: benchmarking at scan
+     * concurrency makes every candidate look slow because they compete for one
+     * radio. Results are mutated in place, so the ranking below picks the
+     * measurements up.
+     */
+    private suspend fun runSpeedPhase(
+        prober: Prober,
+        gathered: List<ScanResult>,
+        onProgress: suspend (ScanProgress) -> Unit,
+        probed: Int,
+        planned: Int,
+        healthy: Int,
+    ) {
+        val shortlist = SpeedPhase.shortlist(gathered, config.speedTopN)
+        if (shortlist.isEmpty()) return
+
+        val gate = Semaphore(config.speedConcurrency)
+        coroutineScope {
+            for (result in shortlist) {
+                launch(Dispatchers.IO) {
+                    gate.withPermit {
+                        currentCoroutineContext().ensureActive()
+                        // One controlled retry: a single failed transfer is
+                        // usually transient, but retrying forever would turn a
+                        // bounded stage into an unbounded one.
+                        repeat(config.speedRetries + 1) { attempt ->
+                            if (attempt > 0 && result.throughputBps > 0) return@repeat
+                            prober.measureSpeed(result, config.speedTestBytes)
+                        }
+                        deliver {
+                            onProgress(ScanProgress(probed, planned, healthy, result.ip))
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /** Atomically takes one unit of expansion budget; false when exhausted. */

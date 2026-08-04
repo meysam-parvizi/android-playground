@@ -231,9 +231,32 @@ data class ScanResult(
         // Locality (5): nearer Cloudflare datacenters behave better from Iran.
         val localityScore = coloScore(colo) * 5.0
 
-        return (stability + lossScore + jitterScore + latencyScore + localityScore)
+        // Measured throughput adjusts the total rather than contributing its own
+        // slice, because most results are never benchmarked. Treating "not
+        // measured" as zero speed would rank an unmeasured IP below a
+        // benchmarked one for no reason. So an unmeasured or confirmed-fast IP
+        // keeps its score, and only a benchmarked-slow one is marked down.
+        val speedFactor = speedFactor()
+
+        return ((stability + lossScore + jitterScore + latencyScore + localityScore) * speedFactor)
             .coerceIn(0.0, 100.0)
             .toInt()
+    }
+
+    /**
+     * Penalty multiplier for a measured-slow data path, 1.0 when unknown or fast.
+     *
+     * A tunnel is unusable below roughly 1 Mbps regardless of how clean its
+     * handshakes look, and above [FAST_ENOUGH_BPS] extra speed stops mattering
+     * for the phone using it.
+     */
+    private fun speedFactor(): Double {
+        if (!downloadTested || throughputBps <= 0) return 1.0
+        if (throughputBps >= FAST_ENOUGH_BPS) return 1.0
+        val fraction = throughputBps.toDouble() / FAST_ENOUGH_BPS
+        return (MIN_SPEED_FACTOR + (1.0 - MIN_SPEED_FACTOR) * fraction).coerceIn(
+            MIN_SPEED_FACTOR, 1.0,
+        )
     }
 
     /**
@@ -254,6 +277,12 @@ data class ScanResult(
     companion object {
         /** Minimum payload proving that the connection carries real data. */
         const val MIN_DATA_GATE_BYTES = 8 * 1024L
+
+        /** Throughput at which more speed stops improving a tunnel in practice. */
+        const val FAST_ENOUGH_BPS = 2_000_000L
+
+        /** Floor for the speed penalty, so a slow IP is demoted but not erased. */
+        const val MIN_SPEED_FACTOR = 0.55
 
         /**
          * Cloudflare datacenters ranked by how well they usually serve Iran.

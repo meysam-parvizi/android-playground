@@ -26,6 +26,7 @@ import com.google.android.material.textfield.MaterialAutoCompleteTextView
 class HeaderAdapter(
     private val countOptions: List<Int>,
     private val sortLabels: List<String>,
+    private val speedLabels: List<String>,
     private val callbacks: Callbacks,
 ) : RecyclerView.Adapter<HeaderAdapter.Holder>() {
 
@@ -35,6 +36,7 @@ class HeaderAdapter(
         fun onCopy()
         fun onCountSelected(index: Int)
         fun onSortSelected(index: Int)
+        fun onSpeedSelected(index: Int)
         fun onIranModeChanged(enabled: Boolean)
     }
 
@@ -73,6 +75,7 @@ class HeaderAdapter(
         val copyButton: MaterialButton = view.findViewById(R.id.copyButton)
         val countInput: MaterialAutoCompleteTextView = view.findViewById(R.id.countInput)
         val sortInput: MaterialAutoCompleteTextView = view.findViewById(R.id.sortInput)
+        val speedInput: MaterialAutoCompleteTextView = view.findViewById(R.id.speedInput)
         val iranModeSwitch: MaterialSwitch = view.findViewById(R.id.iranModeSwitch)
         val resultsHeader: TextView = view.findViewById(R.id.resultsHeader)
         var dropdownsReady = false
@@ -120,6 +123,13 @@ class HeaderAdapter(
             callbacks.onSortSelected(index)
         }
 
+        holder.speedInput.setAdapter(
+            ArrayAdapter(ctx, android.R.layout.simple_list_item_1, speedLabels),
+        )
+        holder.speedInput.setOnItemClickListener { _, _, index, _ ->
+            callbacks.onSpeedSelected(index)
+        }
+
         holder.scanButton.setOnClickListener { callbacks.onScanToggle() }
         holder.copyButton.setOnClickListener { callbacks.onCopy() }
         holder.iranModeSwitch.setOnCheckedChangeListener { _, checked ->
@@ -143,6 +153,7 @@ class HeaderAdapter(
         val counts = countOptions.map { Format.number(it) }
         counts.getOrNull(s.countIndex)?.let { holder.countInput.setText(it, false) }
         sortLabels.getOrNull(s.sortIndex)?.let { holder.sortInput.setText(it, false) }
+        speedLabels.getOrNull(s.speedIndex)?.let { holder.speedInput.setText(it, false) }
 
         if (holder.iranModeSwitch.isChecked != s.iranMode) {
             // Suppressed so this programmatic write is not mistaken for the user
@@ -212,6 +223,7 @@ class HeaderAdapter(
         // Settings that would invalidate a running scan are locked while it runs.
         val editable = !s.isScanning
         holder.countInput.isEnabled = editable
+        holder.speedInput.isEnabled = editable
         holder.iranModeSwitch.isEnabled = editable
     }
 

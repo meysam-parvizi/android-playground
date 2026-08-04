@@ -85,6 +85,12 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
             // Resolved here rather than held on the enum, so the dropdown follows
             // the selected language.
             sortLabels = SortBy.entries.map { getString(it.labelRes) },
+            // Same reason: localised here so the labels follow the language, and
+            // the digits follow the locale's numerals.
+            speedLabels = SpeedTopNOptions.VALUES.map { n ->
+                if (n == 0) getString(R.string.speed_test_off)
+                else getString(R.string.speed_test_top, Format.number(n))
+            },
             callbacks = this,
         )
         emptyAdapter = EmptyStateAdapter()
@@ -216,6 +222,8 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
     override fun onCountSelected(index: Int) = viewModel.setCount(index)
 
     override fun onSortSelected(index: Int) = viewModel.setSort(index)
+
+    override fun onSpeedSelected(index: Int) = viewModel.setSpeedIndex(index)
 
     override fun onIranModeChanged(enabled: Boolean) = viewModel.setIranMode(enabled)
 

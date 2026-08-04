@@ -22,6 +22,10 @@
          extra addresses may be tested on top of it. -->
     <string name="label_count">چند آی‌پی تست شود؟</string>
     <string name="label_count_helper">از میان رنج‌های کلادفلر به‌صورت تصادفی انتخاب می‌شوند</string>
+    <string name="label_speed_test">تست سرعت</string>
+    <string name="hint_speed_test">سرعت واقعی دانلود را بعد از اسکن، روی بهترین نتیجه‌ها و چندتا چندتا اندازه می‌گیرد</string>
+    <string name="speed_test_off">خاموش</string>
+    <string name="speed_test_top">%1$s نتیجه‌ی برتر</string>
     <string name="label_sort">مرتب‌سازی نتایج</string>
 
     <string name="label_iran_mode">حالت شبکه‌ی محدود</string>
