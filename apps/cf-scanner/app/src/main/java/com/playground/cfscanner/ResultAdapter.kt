@@ -203,15 +203,16 @@ class ResultAdapter(
     }
 
     /**
-     * Colours a bare metric value.
+     * Colours a metric and pins its direction.
      *
-     * There is no label to separate any more — the icon carries the meaning — so
-     * the whole string takes the colour. The values already arrive wrapped in
-     * directional isolates from [Format], which keeps them ordered correctly
-     * inside a right-to-left row.
+     * The value arrives already isolated from [Format], but the unit appended
+     * after it — "ms", "Mb/s" — sits outside that isolate and therefore inside
+     * the surrounding Persian run, where the bidirectional algorithm can move it
+     * to the wrong side of the number. Isolating the finished string keeps
+     * "۴۱ ms" together as one left-to-right token.
      */
     private fun value(text: String, colour: Int): CharSequence =
-        SpannableStringBuilder(text).apply {
+        SpannableStringBuilder(Format.isolate(text)).apply {
             setSpan(
                 ForegroundColorSpan(colour),
                 0,
