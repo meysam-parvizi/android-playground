@@ -1,23 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  One result row.
+  A ranked result card on a fixed information grid.
 
-  Two lines with a fixed shape:
+  Line 1: IP address                              score pill
+  Line 2: rank · datacenter
+  Line 3: four equal micro-stats (label above, value below)
 
-    address · where it is                          score
-    ping        jitter        loss
-
-  The metrics sit in three equal columns rather than in one run of text. Written
-  inline as "Ping 41 · Jitter 3 · Loss 0%" the fields shift horizontally with
-  every change in digit count, so comparing jitter across rows means finding the
-  label again on each line. Equal-weight columns line the values up down the
-  whole list, which is the point of a ranked table.
-
-  Flattened from four nested LinearLayouts plus a ChipGroup. The ChipGroup was a
-  flow layout — it measured all six children and re-measured any that wrapped —
-  in a row that binds hundreds of times while a scan reorders the list. The chips
-  were also never interactive, yet each was a screen-reader stop announcing a
-  value and offering nothing to do.
+  The earlier card put rank, a variable-width IP, datacenter and score on one
+  line. The IP alone varies by up to 67dp between valid addresses, so everything
+  after it floated horizontally from card to card. Moving metadata to its own
+  line makes the IP and score stable columns.
 -->
 <com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -37,94 +29,86 @@
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingHorizontal="@dimen/space_l"
-        android:paddingVertical="@dimen/space_m">
+        android:padding="@dimen/space_l">
 
-        <!--
-          Rank badge, tinted by grade so quality reads at a glance.
-
-          gravity alone is not enough: the theme sets textAlignment=viewStart,
-          which in an RTL layout pushes the digit toward the right edge of the
-          circle. Both are pinned to centre here.
-        -->
-        <TextView
-            android:id="@+id/rowRank"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:background="@drawable/bg_rank"
-            android:gravity="center"
-            android:textAlignment="center"
-            android:includeFontPadding="false"
-            android:textAppearance="@style/TextAppearance.CfScanner.LabelLarge"
-            android:textStyle="bold"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
-
-        <!-- The address: monospace and always LTR, since it is copied verbatim. -->
+        <!-- Full-width technical identifier; always LTR and copied verbatim. -->
         <TextView
             android:id="@+id/rowIp"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="@dimen/space_m"
-            android:textAppearance="@style/TextAppearance.CfScanner.Mono"
-            android:textColor="?attr/colorOnSurface"
-            android:textDirection="ltr"
-            android:singleLine="true"
-            android:ellipsize="end"
-            app:layout_constraintStart_toEndOf="@id/rowRank"
-            app:layout_constraintEnd_toStartOf="@id/rowContext"
-            app:layout_constraintTop_toTopOf="@id/rowRank"
-            app:layout_constraintHorizontal_bias="0" />
-
-        <!--
-          Where the edge answered from. Three characters, so it costs almost
-          nothing on the top line, and it keeps the fourth metric column free for
-          throughput.
-        -->
-        <TextView
-            android:id="@+id/rowContext"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="@dimen/space_s"
-            android:layout_marginEnd="@dimen/space_s"
-            android:textAppearance="@style/TextAppearance.CfScanner.Label"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            android:singleLine="true"
-            android:ellipsize="end"
-            app:layout_constraintStart_toEndOf="@id/rowIp"
+            android:layout_marginEnd="@dimen/space_m"
+            android:textAppearance="@style/TextAppearance.CfScanner.MonoCompact"
+            android:textColor="?attr/colorOnSurface"
+            android:textDirection="ltr"
+            android:maxLines="2"
+            android:lineSpacingExtra="2dp"
+            app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toStartOf="@id/rowScore"
-            app:layout_constraintBaseline_toBaselineOf="@id/rowIp" />
+            app:layout_constraintTop_toTopOf="parent" />
 
-        <!-- Score and grade, coloured by band. -->
+        <!--
+          The one coloured quality signal. The old design repeated quality on the
+          rank marker and score, creating competing focal points.
+        -->
         <TextView
             android:id="@+id/rowScore"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="@dimen/space_s"
+            android:minWidth="60dp"
+            android:background="@drawable/bg_score"
+            android:gravity="center"
+            android:paddingStart="@dimen/space_s"
+            android:paddingEnd="@dimen/space_s"
+            android:paddingTop="@dimen/space_xs"
+            android:paddingBottom="@dimen/space_xs"
             android:textAppearance="@style/TextAppearance.CfScanner.LabelLarge"
             android:textStyle="bold"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintBaseline_toBaselineOf="@id/rowIp" />
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <!-- Metadata stays out of the primary line, so neither field can collide. -->
+        <TextView
+            android:id="@+id/rowRank"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_xs"
+            android:textAppearance="@style/TextAppearance.CfScanner.Label"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/rowScore" />
+
+        <TextView
+            android:id="@+id/rowContext"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/space_s"
+            android:textAppearance="@style/TextAppearance.CfScanner.Label"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:singleLine="true"
+            app:layout_constraintStart_toEndOf="@id/rowRank"
+            app:layout_constraintBaseline_toBaselineOf="@id/rowRank" />
 
         <!--
-          Three equal columns. Weighted rather than sized, so they stay aligned
-          across languages and screen widths without any per-locale tuning.
+          Four equal micro-stats. A localised label sits above each value, so the
+          meaning is explicit without placing Latin units and Persian digits on the
+          same visual line as an icon.
         -->
         <TextView
             android:id="@+id/rowPing"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/space_s"
-            android:drawableTop="@drawable/ic_metric_ping"
-            android:drawablePadding="@dimen/space_xs"
+            android:layout_marginTop="@dimen/space_m"
             android:gravity="center"
-            android:textAppearance="@style/TextAppearance.CfScanner.Label"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            android:singleLine="true"
-            android:ellipsize="end"
+            android:textAppearance="@style/TextAppearance.CfScanner.MetricBlock"
+            android:maxLines="2"
+            android:lineSpacingExtra="2dp"
+            app:autoSizeTextType="uniform"
+            app:autoSizeMinTextSize="9sp"
+            app:autoSizeMaxTextSize="12sp"
+            app:autoSizeStepGranularity="1sp"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toStartOf="@id/rowJitter"
-            app:layout_constraintTop_toBottomOf="@id/rowIp"
+            app:layout_constraintTop_toBottomOf="@id/rowRank"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintHorizontal_weight="1"
             app:layout_constraintHorizontal_chainStyle="spread_inside" />
@@ -133,13 +117,14 @@
             android:id="@+id/rowJitter"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:drawableTop="@drawable/ic_metric_jitter"
-            android:drawablePadding="@dimen/space_xs"
             android:gravity="center"
-            android:textAppearance="@style/TextAppearance.CfScanner.Label"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            android:singleLine="true"
-            android:ellipsize="end"
+            android:textAppearance="@style/TextAppearance.CfScanner.MetricBlock"
+            android:maxLines="2"
+            android:lineSpacingExtra="2dp"
+            app:autoSizeTextType="uniform"
+            app:autoSizeMinTextSize="9sp"
+            app:autoSizeMaxTextSize="12sp"
+            app:autoSizeStepGranularity="1sp"
             app:layout_constraintStart_toEndOf="@id/rowPing"
             app:layout_constraintEnd_toStartOf="@id/rowLoss"
             app:layout_constraintTop_toTopOf="@id/rowPing"
@@ -149,40 +134,31 @@
             android:id="@+id/rowLoss"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:drawableTop="@drawable/ic_metric_loss"
-            android:drawablePadding="@dimen/space_xs"
             android:gravity="center"
-            android:textAppearance="@style/TextAppearance.CfScanner.Label"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            android:singleLine="true"
-            android:ellipsize="end"
+            android:textAppearance="@style/TextAppearance.CfScanner.MetricBlock"
+            android:maxLines="2"
+            android:lineSpacingExtra="2dp"
+            app:autoSizeTextType="uniform"
+            app:autoSizeMinTextSize="9sp"
+            app:autoSizeMaxTextSize="12sp"
+            app:autoSizeStepGranularity="1sp"
             app:layout_constraintStart_toEndOf="@id/rowJitter"
             app:layout_constraintEnd_toStartOf="@id/rowSpeed"
             app:layout_constraintTop_toTopOf="@id/rowPing"
             app:layout_constraintHorizontal_weight="1" />
 
-        <!--
-          Throughput, as the fourth column.
-
-          It was briefly removed when it shared a cell with the location and the
-          two together truncated. Given its own column it fits with room to
-          spare, and it belongs here: a user choosing between two addresses with
-          similar latency decides on this number.
-
-          Blank when the scan did not measure it, which is any run outside
-          restricted-network mode.
-        -->
         <TextView
             android:id="@+id/rowSpeed"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:drawableTop="@drawable/ic_metric_speed"
-            android:drawablePadding="@dimen/space_xs"
             android:gravity="center"
-            android:textAppearance="@style/TextAppearance.CfScanner.Label"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            android:singleLine="true"
-            android:ellipsize="end"
+            android:textAppearance="@style/TextAppearance.CfScanner.MetricBlock"
+            android:maxLines="2"
+            android:lineSpacingExtra="2dp"
+            app:autoSizeTextType="uniform"
+            app:autoSizeMinTextSize="9sp"
+            app:autoSizeMaxTextSize="12sp"
+            app:autoSizeStepGranularity="1sp"
             app:layout_constraintStart_toEndOf="@id/rowLoss"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="@id/rowPing"

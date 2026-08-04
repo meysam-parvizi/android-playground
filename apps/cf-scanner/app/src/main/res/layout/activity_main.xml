@@ -1,16 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  A title row above a plain icon bar, over a single scrolling list.
+  Standard one-line top app bar over a single scrolling list.
 
-  The title used to sit inside the toolbar. Measured at 18sp the Persian name
-  needs 181dp; a 320dp screen leaves roughly 176dp inside the toolbar once the
-  two menu icons and the toolbar's own 16dp insets are taken out. Five short
-  pixels, so the last word dropped to a second line while the row still looked
-  half empty — the leftover space was spread across the insets, not gathered
-  where the text could use it.
-
-  On its own row the title has 288dp against 181dp needed, so it fits on one
-  line in both languages with room to spare.
+  The full English title measures 183dp at 16sp and the Persian one 161dp. On a
+  320dp phone, keeping Language visible and moving About into the overflow leaves
+  more than 200dp, so both fit without wrapping or a second title row.
 -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -21,38 +15,24 @@
     android:layoutDirection="locale"
     android:fitsSystemWindows="true">
 
-    <!--
-      The bar carries the menu only. layoutDirection is set explicitly rather
-      than inherited: it places its own children, and relying on the theme
-      reaching it in time is what left the Persian layout drifting once before.
-    -->
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
         android:layoutDirection="locale"
+        app:contentInsetStart="@dimen/space_m"
+        app:contentInsetEnd="0dp"
+        app:titleMarginStart="0dp"
+        app:titleMarginEnd="@dimen/space_s"
+        app:title="@string/screen_title"
+        app:titleCentered="false"
+        app:titleTextAppearance="@style/TextAppearance.CfScanner.ToolbarTitle"
         app:menu="@menu/main_menu" />
 
-    <TextView
-        android:id="@+id/toolbarTitle"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingHorizontal="@dimen/space_l"
-        android:paddingBottom="@dimen/space_m"
-        android:text="@string/screen_title"
-        android:textAppearance="@style/TextAppearance.CfScanner.ToolbarTitle"
-        android:maxLines="2"
-        android:ellipsize="end"
-        android:textAlignment="viewStart" />
-
     <!--
-      One RecyclerView for the whole screen: the controls, the placeholder, and
-      the results are separate adapters concatenated together.
-
-      This replaces a NestedScrollView wrapping a wrap_content RecyclerView. In
-      that arrangement the list is measured unbounded, so it lays out every row
-      at full height and recycles nothing — with a few hundred results every
-      update touched every row, which is what made scrolling stutter.
+      One RecyclerView for the whole screen: controls, placeholder and results are
+      separate adapters concatenated together. No NestedScrollView, so hundreds of
+      result rows are genuinely recycled.
     -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/contentList"
@@ -60,7 +40,8 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:clipToPadding="false"
-        android:paddingHorizontal="@dimen/space_l"
+        android:paddingStart="@dimen/space_l"
+        android:paddingEnd="@dimen/space_l"
         android:paddingBottom="@dimen/space_xl"
         android:scrollbars="vertical" />
 

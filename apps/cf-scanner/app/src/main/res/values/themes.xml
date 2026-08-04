@@ -96,17 +96,14 @@
     </style>
 
     <!--
-      Toolbar title.
-
-      Two lines at 18sp: the full name needs about 282dp in English and 251dp in
-      Persian against roughly 232dp of toolbar width, so it will not fit on one
-      line at any size worth reading. maxLines is set in code, since
-      MaterialToolbar does not expose it as an attribute.
+      One-line toolbar title. Measured with Vazirmatn at 16sp: 183dp in English
+      and 161dp in Persian. Language stays visible and About moves to overflow,
+      leaving enough room on a 320dp phone.
     -->
     <style name="TextAppearance.CfScanner.ToolbarTitle" parent="TextAppearance.Material3.TitleMedium">
         <item name="fontFamily">@font/vazirmatn</item>
         <item name="android:fontFamily">@font/vazirmatn</item>
-        <item name="android:textSize">18sp</item>
+        <item name="android:textSize">16sp</item>
         <item name="android:textColor">?attr/colorOnSurface</item>
         <item name="android:letterSpacing">-0.01</item>
     </style>
@@ -162,38 +159,20 @@
         <item name="android:letterSpacing">0.02</item>
     </style>
 
-    <!--
-      IP addresses. Monospace on purpose: aligned digits make a column of
-      addresses far easier to compare, and Vazirmatn has no monospace variant.
-      The address is Latin-only, so no Persian glyphs are involved.
-    -->
-    <style name="TextAppearance.CfScanner.Mono" parent="TextAppearance.CfScanner.TitleMedium">
+    <!-- Compact technical identifier used in dense result rows. -->
+    <style name="TextAppearance.CfScanner.MonoCompact" parent="TextAppearance.CfScanner.BodyMedium">
         <item name="fontFamily">monospace</item>
         <item name="android:fontFamily">monospace</item>
+        <item name="android:textSize">14sp</item>
         <item name="android:textStyle">bold</item>
     </style>
 
-    <!-- Small read-only metric pill inside a result row. -->
-    <style name="Widget.CfScanner.MetricChip" parent="Widget.Material3.Chip.Assist">
-        <item name="chipMinHeight">26dp</item>
-        <item name="chipStartPadding">8dp</item>
-        <item name="chipEndPadding">8dp</item>
-        <item name="chipIconSize">14dp</item>
-        <item name="android:textAppearance">@style/TextAppearance.CfScanner.LabelSmall</item>
-        <item name="chipBackgroundColor">?attr/colorSurfaceVariant</item>
-        <item name="chipStrokeWidth">0dp</item>
-        <item name="ensureMinTouchTargetSize">false</item>
-        <item name="android:clickable">false</item>
-        <item name="android:checkable">false</item>
-        <!--
-          Chips are labels, not controls. Chip extends CompoundButton, which is
-          focusable by default, so clickable="false" alone still left a screen
-          reader stopping on all six chips of every row — each announcing a value
-          and offering nothing to do. The row itself carries a combined
-          description instead, so the whole result is one stop.
-        -->
-        <item name="android:focusable">false</item>
-        <item name="android:importantForAccessibility">no</item>
+    <!-- Two-line micro-stat: muted label above, bright value below via spans. -->
+    <style name="TextAppearance.CfScanner.MetricBlock" parent="TextAppearance.CfScanner.LabelLarge">
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:includeFontPadding">false</item>
     </style>
 
 </resources>

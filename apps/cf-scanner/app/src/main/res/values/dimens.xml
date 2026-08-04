@@ -24,15 +24,15 @@
       Shape. A single card radius rather than 16 and 20: differing radii between
       adjacent cards is the kind of mismatch that is hard to name but easy to see.
     -->
-    <dimen name="radius_card">20dp</dimen>
+    <dimen name="radius_card">16dp</dimen>
     <dimen name="radius_control">14dp</dimen>
     <dimen name="radius_chip">10dp</dimen>
 
     <!-- Card interior padding, used by every card so their contents align. -->
-    <dimen name="card_padding">20dp</dimen>
+    <dimen name="card_padding">16dp</dimen>
 
     <!-- Vertical gap between cards in the list. -->
-    <dimen name="card_gap">12dp</dimen>
+    <dimen name="card_gap">8dp</dimen>
 
     <!-- Minimum touch target, per the accessibility guidance. -->
     <dimen name="touch_target">48dp</dimen>

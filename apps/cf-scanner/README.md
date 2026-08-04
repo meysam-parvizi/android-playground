@@ -79,10 +79,10 @@ Unhealthy results always sort below healthy ones, whichever sort criterion you p
 
 Material 3, with light and dark themes and full RTL layout. One screen, everything reachable without navigation:
 
-- **Status card** — current state, live progress bar, and a green badge counting healthy finds
+- **Status card** — current state, live progress bar, and a green badge counting clean finds
 - **Settings card** — how many addresses to test, sort criterion, and a **restricted-network** switch carrying a one-line explanation of what it changes
 - **Scan / Stop** — one large primary button that swaps label and icon with state
-- **Results** — one card per IP, two lines of fixed shape: the address, its datacenter and its score on top, then four equal-weight columns carrying their own units — `41 ms`, `±3 ms`, `0%`, `5.6 Mb/s`. Values are lifted to the surface colour while their labels stay dim, so the numbers carry the eye down the list. Loss is tinted when non-zero, and a mark beside the grade shows WebSocket carry.
+- **Results** — a fixed data grid per IP: IP + one coloured score pill, neutral rank/datacenter metadata, then four equal columns with a localised label above the value. Loss is tinted only when non-zero, and a mark beside the grade shows WebSocket carry.
 - **Empty state** — distinguishes "not scanned yet" from "scan finished, nothing found", each with a useful hint
 - **Copy** puts a bare list of addresses on the clipboard — one IP per line, best first, nothing else:
 
@@ -250,37 +250,25 @@ That has a cost worth knowing about. Android may throttle network access for a b
 
 ### Title and spacing
 
-The title sits on its own row beneath the icon bar, on one line at 18sp.
+The full title lives in the standard one-line `MaterialToolbar` at 16sp. Measured with Vazirmatn, the English title is 183dp and the Persian title 161dp. Language stays visible as the primary action; About lives in the overflow, leaving enough room on a 320dp phone without wrapping or a second header row.
 
-It used to live inside the toolbar and wrapped there. Measured, the Persian name needs 181dp; a 320dp screen leaves roughly 176dp inside the toolbar once the two menu icons and its 16dp insets are taken out. Five pixels short — so the last word dropped to a second line while the row still looked half empty, because the leftover space was spread across the insets rather than gathered where the text could use it. On its own row it has 288dp against 181dp needed.
-
-It is a plain toolbar, not a collapsing one. A large collapsing title suits an article; this screen is a form. The collapsing version only shrank when the list scrolled, and the controls live *inside* the list, so on a short result set the title sat there permanently taking 188dp — and even when it did collapse, changing a setting meant scrolling past it first. A fixed two-line title costs about 72dp and never moves.
-
-The title is a child `TextView` rather than `app:title`, because `Toolbar`'s built-in title is single-line with no attribute to change that.
-
-`dimens.xml` holds one 4dp spacing scale and one radius scale.
+`dimens.xml` holds one 4dp spacing scale and one radius scale. Result cards use a 16dp radius and an 8dp gap, which is compact enough for a data list without turning every row into a large floating panel.
 
 ### Reading a result at a glance
 
-The metrics sit in four equal-weight columns rather than in one run of text. Written inline as `Ping 41 · Jitter 3 · Loss 0%` the fields shift horizontally with every change in digit count, so comparing jitter down a ranked list means locating the label again on each row — precisely what a ranked list exists to avoid. Fixed columns line the values up, so one glance reads `3 → 9 → 22`.
+Each card is a fixed information grid:
 
-Each column has an icon above it naming the metric, with the unit beside the number: `41 ms`, `±3 ms`, `0%`, `5.6 Mb/s`. Units alone were not enough — `ms` appears twice, so ping and jitter were indistinguishable without already knowing the column order.
+1. IP and one coloured score pill on the primary line.
+2. Rank and datacenter as neutral metadata below it.
+3. Four equal micro-stat columns: a localised label above a prominent value.
 
-The icons are stacked above the values rather than placed beside them. Beside the number an icon competes with Persian digits for width and sits inside the same bidirectional run; above it, the two never interact.
+The old card put rank, a variable-width IP, datacenter and score on one line. Valid IPv4 addresses vary by up to 67dp in rendered width, so everything after the address floated horizontally from row to row. Moving metadata to its own line gives IP and score stable anchors.
 
-They come from Google's Material Symbols — `network_ping`, `graphic_eq`, `warning`, `speed` — not drawn by hand. An earlier attempt invented pictograms for jitter and loss, which have no conventional symbol, and no amount of making them bolder fixed a glyph that meant nothing. The four silhouettes are deliberately different in kind: an arrow, bars, a triangle, a dial.
+Rank is derived from list position. A RecyclerView move does not rebind its ViewHolder, so the old circular badge sometimes retained its previous number after re-sorting, producing repeated/out-of-order ranks even though the list order was correct. After each diff, a lightweight payload now refreshes rank text on attached rows only.
 
-A column with nothing to report shows an em dash. Throughput is only measured in restricted-network mode, and a blank cell at the end of a row reads as something missing rather than something absent.
+Metric labels are text, not pictograms. Ping and speed have recognisable symbols; jitter and packet loss do not. Previous attempts invented those icons and made them progressively bolder, but weight cannot give meaning to an unfamiliar shape. A short label above the number is explicit in both languages and never shares a bidi run with Persian digits.
 
-Icons were tried first and abandoned. Ping and speed have symbols people recognise; jitter and loss do not, so those two were invented — and no amount of making them bolder fixes a glyph that means nothing to the reader. The units are shorter than the words anyway, and `ms` and `%` need no explanation.
-
-The width problem took three attempts because I kept estimating text width by character count instead of measuring it. The estimate landed just inside the column and just outside reality every time. The columns are now sized against measured widths at 320dp, the narrowest screen in real use, where the longest value has 15dp of slack.
-
-Values take the surface colour against the dim icon, so the numbers carry the eye down the list.
-
-WebSocket carry is a mark beside the grade rather than a column — it is a pass/fail capability, not a measurement — and is still spoken in full for screen readers, since the glyph itself is silent.
-
-Throughput was briefly dropped when it shared a cell with the datacenter code and the pair truncated. That was the wrong call: it is a number people choose on. Given its own column it fits with room to spare, and the three-character datacenter code costs almost nothing on the top line beside the address.
+A column with nothing to report shows an em dash. Throughput is only measured in restricted-network mode, and an empty cell reads as a rendering failure rather than an intentional absence.
 
 ### Accessibility
 
@@ -385,7 +373,7 @@ Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner
 - Every push/PR touching `apps/cf-scanner/**` runs the unit tests, builds the APK, and uploads it as an artifact
 - Pushing a tag `cf-scanner-v<version>` publishes the APK as a GitHub Release asset
 
-Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.8.0**.
+Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.9.0**.
 
 ## Details
 

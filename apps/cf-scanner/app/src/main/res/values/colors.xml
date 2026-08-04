@@ -24,8 +24,9 @@
     <color name="on_surface_variant_dark">#FFB5AFA7</color>
     <color name="outline_dark">#FF3D3A36</color>
 
-    <!-- Grade palette. Shared by the score text and the rank badge so a row
-         reads the same way at a glance in both themes. -->
+    <!-- Grade palette. Foreground colours flag loss and other warnings; the
+         translucent variants tint the score pill while its text stays on-surface
+         for accessible contrast. -->
     <color name="grade_excellent">#FF1B9E4B</color>
     <color name="grade_good">#FF7CB342</color>
     <color name="grade_fair">#FFF2A600</color>

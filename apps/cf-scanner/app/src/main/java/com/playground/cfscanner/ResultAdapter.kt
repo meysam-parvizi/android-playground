@@ -57,6 +57,13 @@ class ResultAdapter(
         items.clear()
         items.addAll(newItems)
         diff.dispatchUpdatesTo(this)
+
+        // A move does not rebind its ViewHolder, so a position-derived rank would
+        // otherwise keep the old number. That produced repeated/out-of-order
+        // ranks after re-sorting even though the list itself was correct. Refresh
+        // rank text across the range with a lightweight payload; RecyclerView only
+        // binds attached rows, and no metric/card work is repeated.
+        if (items.isNotEmpty()) notifyItemRangeChanged(0, items.size, RANK_PAYLOAD)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
@@ -68,11 +75,14 @@ class ResultAdapter(
      * Partial rebind used when only a row's rank changed.
      *
      * A move leaves the row's data identical, so redrawing the whole card would
-     * be wasted work; only the badge depends on position.
+     * be wasted work; only the rank text depends on position.
      */
     override fun onBindViewHolder(holder: Holder, position: Int, payloads: MutableList<Any>) {
         if (payloads.contains(RANK_PAYLOAD)) {
-            bindRank(holder, items[position], position)
+            bindRank(holder, position)
+            holder.itemView.contentDescription = describe(
+                holder.itemView.context, items[position], position,
+            )
             return
         }
         super.onBindViewHolder(holder, position, payloads)
@@ -82,10 +92,12 @@ class ResultAdapter(
         val r = items[position]
         val ctx = holder.itemView.context
         val score = r.score()
-        val colour = ctx.getColor(gradeColour(score))
+        val scoreTextColour = themeColour(
+            ctx, com.google.android.material.R.attr.colorOnSurface,
+        )
         val tint = ctx.getColor(gradeTint(score))
 
-        bindRank(holder, r, position)
+        bindRank(holder, position)
 
         // Latin digits, isolated: an IP is copied into configs, so its digits
         // must stay ASCII and its ordering must survive the RTL layout.
@@ -101,107 +113,108 @@ class ResultAdapter(
         } else {
             ctx.getString(R.string.score_and_grade, Format.number(score), grade)
         }
-        holder.score.setTextColor(colour)
+        holder.score.setTextColor(scoreTextColour)
+        (holder.score.background?.mutate() as? GradientDrawable)?.setColor(tint)
 
-        // Split by kind: where the edge is and what it can carry sits beside the
-        // address, while the three numbers the ranking is built from get their
-        // own line. Putting all five in one run needed roughly 460dp against 248
-        // available, so it wrapped and hid values.
+        // Location is metadata on its own line, so variable-length addresses do
+        // not push the datacenter and score into ragged positions.
         val context = contextLine(r)
         holder.context.text = context
         holder.context.visibility = if (context.isEmpty()) View.GONE else View.VISIBLE
 
-        // Four fixed columns carrying their own unit — 41 ms, ±3 ms, 0%,
-        // 5.6 Mb/s. An earlier attempt used invented pictograms for these, but
-        // jitter and loss have no symbol anyone recognises, and making the
-        // shapes bolder could not fix a glyph that means nothing. The units are
-        // shorter than the words they replace and say what they are.
+        // Four equal micro-stats. A localised label names each value explicitly;
+        // no icon vocabulary or memorised column order is required.
         val bright = themeColour(ctx, com.google.android.material.R.attr.colorOnSurface)
         val dim = themeColour(ctx, com.google.android.material.R.attr.colorOnSurfaceVariant)
 
-        holder.ping.text = value(
-            ctx.getString(R.string.chip_ping, Format.millis(r.avgMs())), bright)
-        holder.jitter.text = value(
-            ctx.getString(R.string.chip_jitter, Format.millis(r.jitterMs())), bright)
-        holder.loss.text = value(
-            ctx.getString(R.string.chip_loss, Format.percent(r.loss().toInt())),
-            // Loss is the metric worth flagging; the others stay neutral.
+        val pingValue = ctx.getString(R.string.chip_ping, Format.millis(r.avgMs()))
+        val jitterValue = ctx.getString(R.string.chip_jitter, Format.millis(r.jitterMs()))
+        val lossValue = ctx.getString(R.string.chip_loss, Format.percent(r.loss().toInt()))
+        val hasSpeed = r.throughputBps > 0
+        val speedValue = if (hasSpeed) {
+            ctx.getString(R.string.chip_speed, Format.speed(r.throughputBps))
+        } else {
+            ctx.getString(R.string.metric_absent)
+        }
+
+        holder.ping.text = metricBlock(
+            ctx.getString(R.string.metric_label_ping), pingValue, bright,
+        )
+        holder.jitter.text = metricBlock(
+            ctx.getString(R.string.metric_label_jitter), jitterValue, bright,
+        )
+        holder.loss.text = metricBlock(
+            ctx.getString(R.string.metric_label_loss),
+            lossValue,
             if (r.loss() > 0) ctx.getColor(R.color.grade_weak) else bright,
         )
+        holder.speed.text = metricBlock(
+            ctx.getString(R.string.metric_label_speed), speedValue,
+            if (hasSpeed) bright else dim,
+        )
 
-        // Throughput, when the scan measured it. An em dash rather than a blank:
-        // an empty cell at the end of the row reads as something missing, while
-        // a dash reads as nothing to report — which is the truth outside
-        // restricted-network mode, where no transfer is attempted.
-        val hasSpeed = r.throughputBps > 0
-        holder.speed.text = if (hasSpeed) {
-            value(ctx.getString(R.string.chip_speed, Format.speed(r.throughputBps)), bright)
-        } else {
-            value(ctx.getString(R.string.metric_absent), dim)
-        }
-
-        // The row is one accessibility stop announcing everything, rather than
-        // a card plus six focusable chips that each said a value and did nothing.
-        holder.itemView.contentDescription = buildString {
-            append(ctx.getString(R.string.a11y_result_rank, Format.number(position + 1)))
-            append(", ")
-            append(Format.ip(r.ip))
-            append(", ")
-            append(holder.score.text)
-            append(", ")
-            // Spoken in words: the columns are labelled by icons on screen,
-            // which a screen reader cannot announce.
-            append(ctx.getString(R.string.chip_ping, Format.millis(r.avgMs())))
-            append(", ")
-            append(ctx.getString(R.string.chip_jitter, Format.millis(r.jitterMs())))
-            append(", ")
-            append(ctx.getString(R.string.chip_loss, Format.percent(r.loss().toInt())))
-            if (hasSpeed) {
-                append(", ")
-                append(ctx.getString(R.string.chip_speed, Format.speed(r.throughputBps)))
-            }
-            if (r.wsOk) {
-                append(", ")
-                append(ctx.getString(R.string.chip_ws))
-            }
-            if (context.isNotEmpty()) {
-                append(", ")
-                append(context)
-            }
-        }
+        // One screen-reader stop for the whole row.
+        holder.itemView.contentDescription = describe(ctx, r, position)
 
         holder.itemView.setOnClickListener { onRowClick(r) }
     }
 
-    /**
-     * Draws the rank badge, which is the only part of a row that depends on its
-     * position in the list.
-     */
-    private fun bindRank(holder: Holder, r: ScanResult, position: Int) {
-        val ctx = holder.itemView.context
-        val score = r.score()
-        holder.rank.text = Format.number(position + 1)
-        holder.rank.setTextColor(ctx.getColor(gradeColour(score)))
-        // Tint the shared oval per grade rather than shipping five drawables.
-        (holder.rank.background?.mutate() as? GradientDrawable)
-            ?.setColor(ctx.getColor(gradeTint(score)))
+    /** Full spoken description, recomputed when either data or rank changes. */
+    private fun describe(ctx: Context, r: ScanResult, position: Int): String = buildString {
+        append(ctx.getString(R.string.result_rank, Format.number(position + 1)))
+        append(", ")
+        append(Format.ip(r.ip))
+        append(", ")
+        val grade = ctx.getString(r.gradeRes())
+        append(
+            if (r.wsOk) ctx.getString(
+                R.string.score_grade_ws, Format.number(r.score()), grade,
+            ) else ctx.getString(
+                R.string.score_and_grade, Format.number(r.score()), grade,
+            ),
+        )
+        append(", ")
+        append(spokenMetric(
+            ctx, R.string.metric_label_ping,
+            ctx.getString(R.string.chip_ping, Format.millis(r.avgMs())),
+        ))
+        append(", ")
+        append(spokenMetric(
+            ctx, R.string.metric_label_jitter,
+            ctx.getString(R.string.chip_jitter, Format.millis(r.jitterMs())),
+        ))
+        append(", ")
+        append(spokenMetric(
+            ctx, R.string.metric_label_loss,
+            ctx.getString(R.string.chip_loss, Format.percent(r.loss().toInt())),
+        ))
+        if (r.throughputBps > 0) {
+            append(", ")
+            append(spokenMetric(
+                ctx, R.string.metric_label_speed,
+                ctx.getString(R.string.chip_speed, Format.speed(r.throughputBps)),
+            ))
+        }
+        if (r.wsOk) {
+            append(", ")
+            append(ctx.getString(R.string.chip_ws))
+        }
+        if (r.colo.isNotEmpty()) {
+            append(", ")
+            append(r.colo)
+        }
     }
 
-    /**
-     * Where this edge is and what it can carry.
-     *
-     * Context rather than measurement, so it sits beside the address and stays
-     * dim. Absent values are omitted entirely rather than rendered empty.
-     */
-    /**
-     * The fourth column: where the edge answered from.
-     *
-     * Throughput used to appear here too, but "AMS · Speed 2.1 Mbit" needs about
-     * 110dp in a 62dp column, so it truncated the location it sat beside. It is
-     * also the least-consulted number on the row, and it already does its real
-     * work as a gate: an IP that stalls mid-transfer is rejected and never
-     * appears in the list at all. The About screen explains that.
-     */
+    /** The rank is neutral metadata; quality colour belongs to the score pill. */
+    private fun bindRank(holder: Holder, position: Int) {
+        val ctx = holder.itemView.context
+        holder.rank.text = ctx.getString(R.string.result_rank, Format.number(position + 1))
+        holder.rank.setTextColor(
+            themeColour(ctx, com.google.android.material.R.attr.colorOnSurfaceVariant),
+        )
+    }
+
+    /** Datacenter code shown as secondary metadata below the address. */
     private fun contextLine(r: ScanResult): CharSequence = r.colo
 
     /** Resolves a colour from the current theme so it follows light/dark. */
@@ -211,33 +224,47 @@ class ResultAdapter(
         return typed.data
     }
 
-    /**
-     * Colours a metric and pins its direction.
-     *
-     * The value arrives already isolated from [Format], but the unit appended
-     * after it — "ms", "Mb/s" — sits outside that isolate and therefore inside
-     * the surrounding Persian run, where the bidirectional algorithm can move it
-     * to the wrong side of the number. Isolating the finished string keeps
-     * "۴۱ ms" together as one left-to-right token.
-     */
-    private fun value(text: String, colour: Int): CharSequence =
-        SpannableStringBuilder(Format.isolate(text)).apply {
-            setSpan(
-                ForegroundColorSpan(colour),
-                0,
-                length,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
-            )
-        }
+    /** Builds one fixed two-line stat: muted label, prominent value. */
+    private fun metricBlock(label: String, value: String, valueColour: Int): CharSequence {
+        val valueToken = Format.isolate(value)
+        return SpannableStringBuilder(label)
+            .append('\n')
+            .append(valueToken)
+            .apply {
+                val start = length - valueToken.length
+                setSpan(
+                    ForegroundColorSpan(valueColour),
+                    start,
+                    length,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+                setSpan(
+                    android.text.style.StyleSpan(android.graphics.Typeface.BOLD),
+                    start,
+                    length,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+                setSpan(
+                    android.text.style.RelativeSizeSpan(1.08f),
+                    start,
+                    length,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+            }
+    }
+
+    /** Spoken form of a visual label/value block. */
+    private fun spokenMetric(ctx: Context, labelRes: Int, value: String): String =
+        "${ctx.getString(labelRes)} ${Format.isolate(value)}"
 
     override fun getItemCount(): Int = items.size
 
     /**
      * Diff over the ranked list.
      *
-     * Identity is the address, but position matters too: the rank badge shows the
-     * row's place in the ranking, so a row that moved has to be rebound even
-     * though its measurements are unchanged.
+     * Identity is the address and content comparison covers displayed data.
+     * Position-derived rank is refreshed separately after dispatch, because a
+     * move event does not rebind its ViewHolder.
      */
     private class Diff(
         private val old: List<ScanResult>,
@@ -259,7 +286,7 @@ class ResultAdapter(
          * ranking reordering constantly that made DiffUtil equivalent to
          * `notifyDataSetChanged`, plus the cost of computing the diff first.
          *
-         * The rank badge does depend on position, so it is refreshed separately
+         * The rank text does depend on position, so it is refreshed separately
          * through [RANK_PAYLOAD] rather than by forcing a full rebind.
          */
         override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
@@ -273,40 +300,17 @@ class ResultAdapter(
                 a.wsOk == b.wsOk &&
                 a.throughputBps == b.throughputBps
         }
-
-        /**
-         * Asks for a rank-only update when a row moved but its data did not.
-         *
-         * Returning a payload keeps `onBindViewHolder` from doing the full bind:
-         * only the badge is redrawn.
-         */
-        override fun getChangePayload(oldItemPosition: Int, newItemPosition: Int): Any =
-            RANK_PAYLOAD
     }
 
     private companion object {
-        /**
-         * Separator between metrics. A spaced en dash, not a middle dot: beside
-         * Persian digits a middle dot sits at the same height as ۰ and is easily
-         * read as one. The score line dropped it for the same reason.
-         */
-        const val SEPARATOR = "   ·   "
 
         /**
-         * Marks a rebind that only needs the rank badge redrawn.
+         * Marks a rebind that only needs the rank text redrawn.
          *
          * A plain object identity is enough; the payload carries no data.
          */
         val RANK_PAYLOAD = Any()
 
-        /** Grade bands mirror [ScanResult.gradeRes]. */
-        fun gradeColour(score: Int): Int = when (score) {
-            in 90..100 -> R.color.grade_excellent
-            in 75..89 -> R.color.grade_good
-            in 55..74 -> R.color.grade_fair
-            in 1..54 -> R.color.grade_weak
-            else -> R.color.grade_bad
-        }
 
         fun gradeTint(score: Int): Int = when (score) {
             in 90..100 -> R.color.grade_excellent_bg

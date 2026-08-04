@@ -6,11 +6,12 @@
         android:id="@+id/action_language"
         android:icon="@drawable/ic_language"
         android:title="@string/action_language"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="always" />
 
+    <!-- Kept in the overflow so the full title has a stable width on narrow phones. -->
     <item
         android:id="@+id/action_about"
         android:icon="@drawable/ic_info"
         android:title="@string/action_about"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="never" />
 </menu>

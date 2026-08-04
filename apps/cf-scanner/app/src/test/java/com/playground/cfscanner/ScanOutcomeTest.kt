@@ -1,6 +1,7 @@
 package com.playground.cfscanner
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -26,6 +27,7 @@ import org.junit.Test
  * a closed loopback port, which works but cannot express "connected but
  * unhealthy" as distinct from "never connected at all".
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class ScanOutcomeTest {
 
     /**
