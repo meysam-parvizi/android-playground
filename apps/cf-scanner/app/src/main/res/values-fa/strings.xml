@@ -43,6 +43,9 @@
 
     <string name="status_idle">آماده‌ی اسکن</string>
     <string name="status_scanning">در حال اسکن…</string>
+    <string name="status_measuring">در حال سنجش سرعت…</string>
+    <string name="empty_measuring">در حال سنجش سرعت</string>
+    <string name="empty_measuring_hint">سرعت واقعی دانلود روی بهترین نتیجه‌ها بررسی می‌شود</string>
     <!-- Spelling out "تست‌شده" and "تمیز" so the two numbers cannot be confused
          with each other, and stating the target rather than a bare total. -->
     <string name="status_progress">%1$s آی‌پی تست شد از %2$s</string>

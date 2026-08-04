@@ -231,6 +231,9 @@ class ScanEngine(
     suspend fun scan(
         onProgress: suspend (ScanProgress) -> Unit,
         onResult: suspend (ScanResult) -> Unit,
+        // Default no-op so existing callers and tests are unaffected by the
+        // second stage.
+        onSpeedPhaseStart: suspend () -> Unit = {},
     ): ScanOutcome {
         val prober = proberFactory(config)
 
@@ -309,7 +312,7 @@ class ScanEngine(
         // Second stage: measure real throughput on the best few, now that
         // nothing else is competing for bandwidth.
         runSpeedPhase(
-            prober, gathered, onProgress,
+            prober, gathered, onProgress, onSpeedPhaseStart,
             probed.get(), planned.get(), healthyCount.get(),
         )
 
@@ -339,12 +342,17 @@ class ScanEngine(
         prober: Prober,
         gathered: List<ScanResult>,
         onProgress: suspend (ScanProgress) -> Unit,
+        onSpeedPhaseStart: suspend () -> Unit,
         probed: Int,
         planned: Int,
         healthy: Int,
     ) {
         val shortlist = SpeedPhase.shortlist(gathered, config.speedTopN)
         if (shortlist.isEmpty()) return
+
+        // Tell the UI the scan moved to its second stage: probed == total from
+        // here on, so progress alone cannot explain the wait.
+        deliver { onSpeedPhaseStart() }
 
         val gate = Semaphore(config.speedConcurrency)
         coroutineScope {

@@ -130,9 +130,15 @@ class HeaderStateTest {
     }
 
     @Test
-    fun onlyTheScanningPhaseCountsAsScanning() {
-        assertEquals(true, HeaderState(phase = ScanPhase.SCANNING).isScanning)
-        for (phase in ScanPhase.entries.filterNot { it == ScanPhase.SCANNING }) {
+    fun onlyUnfinishedWorkCountsAsScanning() {
+        // isScanning means "work in flight", which drives the Stop button and the
+        // locked inputs. Discovery and the speed benchmark are both in flight;
+        // every settled phase is not.
+        val busy = setOf(ScanPhase.SCANNING, ScanPhase.MEASURING)
+        for (phase in busy) {
+            assertEquals("$phase must report scanning", true, HeaderState(phase = phase).isScanning)
+        }
+        for (phase in ScanPhase.entries.filterNot { it in busy }) {
             assertEquals("$phase must not report scanning", false, HeaderState(phase = phase).isScanning)
         }
     }

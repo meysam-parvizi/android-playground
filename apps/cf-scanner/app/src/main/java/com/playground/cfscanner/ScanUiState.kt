@@ -14,6 +14,15 @@ enum class ScanPhase {
     /** A scan is in flight. */
     SCANNING,
 
+    /**
+     * Discovery finished; the shortlist is being benchmarked for speed.
+     *
+     * Its own phase because probed == total throughout, so a shared SCANNING
+     * phase would leave the UI pinned at 100% for tens of seconds with no
+     * explanation for the wait.
+     */
+    MEASURING,
+
     /** A scan ran to completion. */
     FINISHED,
 
@@ -49,6 +58,10 @@ object EmptyStateRules {
             ScanPhase.SCANNING -> EmptyContent(
                 R.string.empty_searching,
                 R.string.empty_searching_hint,
+            )
+            ScanPhase.MEASURING -> EmptyContent(
+                R.string.empty_measuring,
+                R.string.empty_measuring_hint,
             )
             ScanPhase.FINISHED -> EmptyContent(
                 R.string.empty_none_found,
@@ -105,7 +118,8 @@ data class HeaderState(
      */
     val requested: Int = 0,
 ) {
-    val isScanning: Boolean get() = phase == ScanPhase.SCANNING
+    val isScanning: Boolean
+        get() = phase == ScanPhase.SCANNING || phase == ScanPhase.MEASURING
 
     /** Progress as a percentage, clamped for display. */
     val progressPercent: Int

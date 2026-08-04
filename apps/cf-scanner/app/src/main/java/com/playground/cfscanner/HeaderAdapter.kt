@@ -230,6 +230,7 @@ class HeaderAdapter(
     private fun statusTextRes(phase: ScanPhase): Int = when (phase) {
         ScanPhase.IDLE -> R.string.status_idle
         ScanPhase.SCANNING -> R.string.status_scanning
+        ScanPhase.MEASURING -> R.string.status_measuring
         ScanPhase.FINISHED -> R.string.status_done
         ScanPhase.STOPPED -> R.string.status_stopped
         ScanPhase.ERROR -> R.string.status_error
