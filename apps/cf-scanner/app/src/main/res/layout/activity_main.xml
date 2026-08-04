@@ -15,19 +15,53 @@
     android:layoutDirection="locale"
     android:fitsSystemWindows="true">
 
-    <com.google.android.material.appbar.MaterialToolbar
-        android:id="@+id/toolbar"
+    <!--
+      Toolbar for the actions only; the title is a sibling, not a child.
+
+      MaterialToolbar's built-in title is permanently single-line and ellipsized,
+      and it is measured against whatever space is left after the action views.
+      With the language icon and the overflow button both present, the Persian
+      title lost its last word to an ellipsis while the row still looked half
+      empty. No attribute makes the built-in title wrap or shrink, and a child
+      view cannot claim the leftover width either: Toolbar.LayoutParams extends
+      ActionBar.LayoutParams, so layout_weight is ignored inside it.
+
+      A ConstraintLayout gives the title an explicit constraint against the
+      action area instead, which is the only arrangement where "use the space
+      that is actually free" is stated rather than hoped for.
+    -->
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:layoutDirection="locale"
-        app:contentInsetStart="@dimen/space_m"
-        app:contentInsetEnd="0dp"
-        app:titleMarginStart="0dp"
-        app:titleMarginEnd="@dimen/space_s"
-        app:title="@string/screen_title"
-        app:titleCentered="false"
-        app:titleTextAppearance="@style/TextAppearance.CfScanner.ToolbarTitle"
-        app:menu="@menu/main_menu" />
+        android:layoutDirection="locale">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layoutDirection="locale"
+            app:contentInsetStart="0dp"
+            app:contentInsetEnd="0dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:menu="@menu/main_menu" />
+
+        <TextView
+            android:id="@+id/toolbarTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/space_l"
+            android:layout_marginEnd="@dimen/space_s"
+            android:text="@string/screen_title"
+            android:textAppearance="@style/TextAppearance.CfScanner.ToolbarTitle"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:textAlignment="viewStart"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/toolbar"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <!--
       One RecyclerView for the whole screen: controls, placeholder and results are

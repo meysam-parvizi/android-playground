@@ -26,9 +26,20 @@
     app:cardBackgroundColor="?attr/colorSurfaceVariant"
     app:rippleColor="?attr/colorPrimary">
 
+    <!--
+      Direction is pinned to the locale, not inferred.
+
+      Without this, Android resolves each card by its first strong character.
+      A card begins with an IP address, whose first strong character is a Latin
+      digit, so cards resolved LTR while the Persian UI around them resolved
+      RTL — the badge, address and metric order flipped from card to card
+      depending on content. The IP keeps its own textDirection="ltr" below; that
+      is a property of the address, not of the card holding it.
+    -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layoutDirection="locale"
         android:padding="@dimen/space_l">
 
         <!-- Full-width technical identifier; always LTR and copied verbatim. -->
