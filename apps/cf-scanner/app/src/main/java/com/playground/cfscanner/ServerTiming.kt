@@ -45,7 +45,13 @@ data class EdgeTiming(
 
     /** True when at least one useful field was parsed. */
     val hasAnything: Boolean
-        get() = edgeDurationMs != null || minRttUs != null || lost != null
+        get() = edgeDurationMs != null ||
+            rttUs != null ||
+            minRttUs != null ||
+            rttVarUs != null ||
+            lost != null ||
+            retrans != null ||
+            deliveryRateBps != null
 }
 
 /**

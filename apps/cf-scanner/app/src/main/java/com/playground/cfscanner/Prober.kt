@@ -51,16 +51,16 @@ open class Prober(
      * transfer catches those. Kept small because it is paid once per candidate.
      */
     private val downloadBytes: Int = 0,
+    private val webSocketPreDataHoldMs: Int = 0,
+    private val interAttemptDelayMinMs: Int = 0,
+    private val interAttemptDelayMaxMs: Int = 0,
 ) {
 
-    /** SNI hostnames rotated across probes so DPI cannot key on one domain. */
-    private val sniPool = listOf(
-        "www.cloudflare.com",
-        "cdnjs.cloudflare.com",
-        "ajax.cloudflare.com",
-        "blog.cloudflare.com",
-        "developers.cloudflare.com",
-        "speed.cloudflare.com",
+    /** Identity/telemetry returned by one trace request, never shared across tries. */
+    private data class EdgeVerification(
+        val httpStatus: Int = 0,
+        val colo: String = "",
+        val edge: EdgeTiming? = null,
     )
 
     private val rnd = SecureRandom()
@@ -108,6 +108,62 @@ open class Prober(
         return s
     }
 
+    /** Runs one atomic TCP/TLS/trace/stability chain for one SNI. */
+    private suspend fun probeCoreAttempt(ip: String, port: Int, sni: String): AttemptResult {
+        var socket: Socket? = null
+        var tls: SSLSocket? = null
+        var tcpMs = 0L
+        var tlsSucceeded = false
+        return try {
+            val connectStarted = System.nanoTime()
+            socket = Socket().apply {
+                tcpNoDelay = true
+                soTimeout = timeoutMs
+            }
+            connectCancellable(socket, InetSocketAddress(ip, port))
+            tcpMs = ((System.nanoTime() - connectStarted) / 1_000_000).coerceAtLeast(1)
+
+            val verification: EdgeVerification
+            val stability: Boolean
+            if (port == 80) {
+                verification = verifyEdge(socket, sni)
+                stability = verification.httpStatus in 200..399 &&
+                    verification.colo.isNotEmpty() && holdIdle(socket)
+            } else {
+                val secure = openTls(socket, sni, port)
+                tls = secure
+                secure.startHandshake()
+                tlsSucceeded = true
+                verification = verifyEdge(secure, sni)
+                stability = verification.httpStatus in 200..399 &&
+                    verification.colo.isNotEmpty() && holdIdle(secure)
+            }
+
+            AttemptResult(
+                sni = sni,
+                tcpConnectMs = tcpMs,
+                tlsRequired = port != 80,
+                tlsOk = tlsSucceeded,
+                httpStatus = verification.httpStatus,
+                colo = verification.colo,
+                stabilityOk = stability,
+                edge = verification.edge,
+            )
+        } catch (ce: CancellationException) {
+            throw ce
+        } catch (_: Exception) {
+            AttemptResult(
+                sni = sni,
+                tcpConnectMs = tcpMs,
+                tlsRequired = port != 80,
+                tlsOk = tlsSucceeded,
+            )
+        } finally {
+            tls?.closeQuietly()
+            socket?.closeQuietly()
+        }
+    }
+
     /**
      * Runs [tries] staged attempts against [ip] and returns the aggregate.
      *
@@ -118,77 +174,46 @@ open class Prober(
         withContext(Dispatchers.IO) {
             val result = ScanResult(ip = ip, port = port)
 
-            repeat(tries) { attempt ->
+            repeat(tries) { attemptIndex ->
                 currentCoroutineContext().ensureActive()
-                var socket: Socket? = null
-                var tls: SSLSocket? = null
-                try {
-                    val started = System.nanoTime()
-                    socket = Socket()
-                    socket.tcpNoDelay = true
-                    socket.soTimeout = timeoutMs
 
-                    // Socket.connect() blocks and does not observe coroutine
-                    // cancellation, so a cancelled scan would otherwise sit here
-                    // for the full timeout. Closing the socket from the
-                    // cancellation handler makes the blocked call throw at once.
-                    connectCancellable(socket, InetSocketAddress(ip, port))
+                var selected = AttemptResult(
+                    sni = SniStrategy.order(ip, attemptIndex).first(),
+                    tlsRequired = port != 80,
+                )
+                for (sni in SniStrategy.order(ip, attemptIndex)) {
+                    val current = probeCoreAttempt(ip, port, sni)
+                    selected = current
+                    if (current.coreSuccess) break
+                }
+                result.recordAttempt(selected)
 
-                    val connectMs = (System.nanoTime() - started) / 1_000_000
-
-                    if (port == 80) {
-                        result.latencies.add(if (connectMs > 0) connectMs else 1)
-                        holdIdle(socket, result)
-                        return@repeat
+                if (selected.coreSuccess) {
+                    // Candidate-level gates run once after the successful SNI was
+                    // chosen. They never rewrite per-attempt loss accounting.
+                    if (testWebSocket && !result.wsOk) {
+                        probeWebSocket(ip, port, selected.sni, result)
                     }
-
-                    val sni = sniPool[(attempt + rnd.nextInt(sniPool.size)) % sniPool.size]
-                    // Assigned before the handshake so `finally` can always close it.
-                    val secure = openTls(socket, sni, port)
-                    tls = secure
-                    secure.startHandshake()
-                    result.tlsOk = true
-
-                    val totalMs = (System.nanoTime() - started) / 1_000_000
-                    result.latencies.add(if (totalMs > 0) totalMs else 1)
-
-                    // Confirm this is genuinely a Cloudflare edge, and learn its colo.
-                    verifyEdge(tls, sni, result)
-
-                    // The decisive test: does the link survive being idle?
-                    holdIdle(tls, result)
-
-                    if (testWebSocket && !result.wsOk && result.stableOk) {
-                        tls.closeQuietly()
-                        socket.closeQuietly()
-                        tls = null
-                        socket = null
-                        probeWebSocket(ip, port, sni, result)
+                    if (downloadBytes > 0 && !result.downloadTested) {
+                        probeDownload(ip, port, selected.sni, result)
                     }
+                }
 
-                    // Payload transfer, last and only once: it is the most
-                    // expensive stage, so it runs only for an IP that has already
-                    // proven it can hold a connection.
-                    if (downloadBytes > 0 && result.stableOk && !result.downloadTested) {
-                        tls?.closeQuietly()
-                        socket?.closeQuietly()
-                        tls = null
-                        socket = null
-                        probeDownload(ip, port, sni, result)
-                    }
-                } catch (ce: CancellationException) {
-                    throw ce
-                } catch (_: Exception) {
-                    // A failed attempt is recorded as latency 0 so loss() sees it.
-                    result.latencies.add(0)
-                } finally {
-                    tls?.closeQuietly()
-                    socket?.closeQuietly()
+                if (attemptIndex < tries - 1) {
+                    val pause = nextInterAttemptDelayMs()
+                    if (pause > 0) delay(pause.toLong())
                 }
             }
 
             result
         }
+
+    private fun nextInterAttemptDelayMs(): Int {
+        val min = interAttemptDelayMinMs.coerceAtLeast(0)
+        val max = interAttemptDelayMaxMs.coerceAtLeast(min)
+        if (max == 0) return 0
+        return min + rnd.nextInt(max - min + 1)
+    }
 
     /**
      * Connects [socket] to [address], aborting immediately if the coroutine is
@@ -216,44 +241,35 @@ open class Prober(
      * Issues GET /cdn-cgi/trace and extracts the HTTP status, colo, and any
      * `Server-Timing` telemetry the edge volunteers.
      */
-    private fun verifyEdge(socket: Socket, sni: String, result: ScanResult) {
-        try {
-            val request = buildString {
-                append("GET /cdn-cgi/trace HTTP/1.1\r\n")
-                append("Host: $sni\r\n")
-                append("User-Agent: Mozilla/5.0\r\n")
-                append("Accept: */*\r\n")
-                append("Connection: keep-alive\r\n\r\n")
-            }
-            socket.getOutputStream().apply {
-                write(request.toByteArray())
-                flush()
-            }
-
-            val input = socket.getInputStream()
-
-            // Shared reader: this was hand-rolled differently here and in
-            // probeDownload, and only the other copy bounded its input. The
-            // unbounded loop here could be held open indefinitely by a peer
-            // trickling one header line at a time, since each individual read
-            // stayed under the socket timeout.
-            val head = HttpHeadReader.read(input)
-            if (head.status > 0) result.httpStatus = head.status
-            if (head.serverTimings.isNotEmpty()) {
-                ServerTimingParser.parse(head.serverTimings)
-                    .takeIf { it.hasAnything }
-                    ?.let { result.edge = it }
-            }
-
-            // Body is the trace key=value list; find colo. Read to the end rather
-            // than stopping at the match: the idle-hold check that follows tests
-            // whether the peer tears the connection down, and leftover unread
-            // bytes would satisfy it immediately without ever exercising the
-            // connection.
-            result.colo = readColo(input)
-        } catch (_: Exception) {
-            // Leave httpStatus/colo unset; isHealthy() will reject the IP.
+    private fun verifyEdge(socket: Socket, sni: String): EdgeVerification = try {
+        val request = buildString {
+            append("GET /cdn-cgi/trace HTTP/1.1\r\n")
+            append("Host: $sni\r\n")
+            append("User-Agent: Mozilla/5.0\r\n")
+            append("Accept: */*\r\n")
+            append("Connection: keep-alive\r\n\r\n")
         }
+        socket.getOutputStream().apply {
+            write(request.toByteArray())
+            flush()
+        }
+
+        val input = socket.getInputStream()
+        val head = HttpHeadReader.read(input)
+        val edge = head.serverTimings
+            .takeIf { it.isNotEmpty() }
+            ?.let(ServerTimingParser::parse)
+            ?.takeIf { it.hasAnything }
+
+        // Drain the trace body so the later idle check cannot succeed on stale
+        // response bytes that were already in the socket buffer.
+        EdgeVerification(
+            httpStatus = head.status,
+            colo = readColo(input),
+            edge = edge,
+        )
+    } catch (_: Exception) {
+        EdgeVerification()
     }
 
     /**
@@ -308,24 +324,33 @@ open class Prober(
      * `sendUrgentData`, which most Android devices reject outright, so no IP
      * ever passed and every result came back unhealthy.
      */
-    private suspend fun holdIdle(socket: Socket, result: ScanResult) {
-        try {
+    private suspend fun holdIdle(socket: Socket): Boolean =
+        holdFor(socket, idleHoldMs)
+
+    /** Holds a connection silent, treating timeout as survival and RST/EOF as failure. */
+    private suspend fun holdFor(socket: Socket, durationMs: Int): Boolean = try {
+        val target = durationMs.coerceAtLeast(0)
+        if (target == 0) {
+            true
+        } else {
             // Split the wait so cancellation lands promptly.
-            val slice = (idleHoldMs / 5).coerceAtLeast(100).toLong()
+            val slice = (target / 5).coerceAtLeast(100).toLong()
             var waited = 0L
-            while (waited < idleHoldMs) {
-                delay(slice)
-                waited += slice
-                if (!currentCoroutineContext().isActive) return
-                if (socket.isClosed || !socket.isConnected || socket.isInputShutdown) return
+            var open = true
+            while (waited < target && open) {
+                val waitNow = minOf(slice, target - waited)
+                delay(waitNow)
+                waited += waitNow
+                currentCoroutineContext().ensureActive()
+                open = !socket.isClosed && socket.isConnected && !socket.isInputShutdown
             }
 
-            result.stableOk = withContext(Dispatchers.IO) { isStillAlive(socket) }
-        } catch (ce: CancellationException) {
-            throw ce
-        } catch (_: Exception) {
-            // Any failure here means the connection did not survive.
+            open && withContext(Dispatchers.IO) { isStillAlive(socket) }
         }
+    } catch (ce: CancellationException) {
+        throw ce
+    } catch (_: Exception) {
+        false
     }
 
     /**
@@ -370,6 +395,16 @@ open class Prober(
                 val secure = openTls(socket, sni, port)
                 tls = secure
                 secure.startHandshake()
+
+                // Tunnel-like TLS connections can be reset by DPI before they
+                // send application data. Restricted mode holds this dedicated WS
+                // connection silent first; timeout means it survived, RST/EOF
+                // means it was killed.
+                if (webSocketPreDataHoldMs > 0 &&
+                    !holdFor(secure, webSocketPreDataHoldMs)
+                ) {
+                    return@withContext
+                }
 
                 val keyBytes = ByteArray(16).also { rnd.nextBytes(it) }
                 val key = base64(keyBytes)
@@ -456,8 +491,9 @@ open class Prober(
                     if (total >= downloadBytes) break
                 }
                 val elapsedMs = (System.nanoTime() - started) / 1_000_000
+                result.downloadedBytes = total
 
-                if (total > 0 && elapsedMs > 0) {
+                if (total >= ScanResult.MIN_DATA_GATE_BYTES && elapsedMs > 0) {
                     // Discount the edge's own processing time so the figure is
                     // transfer speed rather than transfer plus server think-time.
                     val edgeMs = ServerTimingParser.parse(timings).edgeDurationMs ?: 0

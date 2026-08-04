@@ -11,8 +11,10 @@ import kotlin.math.sqrt
 data class ScanResult(
     val ip: String,
     val port: Int,
-    /** Per-attempt latency in milliseconds; 0 means that attempt failed. */
+    /** Legacy per-attempt latency samples; kept for compatibility with old data/tests. */
     val latencies: MutableList<Long> = mutableListOf(),
+    /** Full-chain attempts used by the current prober. */
+    val attemptResults: MutableList<AttemptResult> = mutableListOf(),
     var tlsOk: Boolean = false,
     /** Connection survived an idle hold without being reset by DPI. */
     var stableOk: Boolean = false,
@@ -23,6 +25,8 @@ data class ScanResult(
     var colo: String = "",
     /** Download throughput in bytes/sec; 0 when not measured. */
     var throughputBps: Long = 0,
+    /** Number of payload bytes actually received during the data-path gate. */
+    var downloadedBytes: Long = 0,
     /**
      * Whether a payload download was attempted at all.
      *
@@ -41,8 +45,32 @@ data class ScanResult(
     var edge: EdgeTiming? = null,
 ) {
 
-    val attempts: Int get() = latencies.size
-    val successes: Int get() = latencies.count { it > 0 }
+    val attempts: Int
+        get() = if (attemptResults.isNotEmpty()) attemptResults.size else latencies.size
+
+    val successes: Int
+        get() = if (attemptResults.isNotEmpty()) {
+            attemptResults.count { it.coreSuccess }
+        } else {
+            latencies.count { it > 0 }
+        }
+
+    /**
+     * Records one atomic attempt. Aggregate identity/stability fields are
+     * published only by a complete attempt, so partial successes from different
+     * tries can never be combined into a clean candidate.
+     */
+    fun recordAttempt(attempt: AttemptResult) {
+        attemptResults += attempt
+        latencies += if (attempt.coreSuccess) attempt.tcpConnectMs else 0
+        if (!attempt.coreSuccess) return
+
+        tlsOk = attempt.tlsOk
+        httpStatus = attempt.httpStatus
+        colo = attempt.colo
+        stableOk = true
+        attempt.edge?.let { edge = it }
+    }
 
     /**
      * Mean latency over successful attempts only.
@@ -52,6 +80,23 @@ data class ScanResult(
      * however long the edge spent thinking.
      */
     fun avgMs(): Long {
+        if (attemptResults.isNotEmpty()) {
+            // Cloudflare's TCP stack reports a smoothed RTT for the exact
+            // connection. Prefer it to client connect timing, which includes
+            // scheduler and socket-setup noise.
+            val serverRtts = attemptResults
+                .filter { it.coreSuccess }
+                .mapNotNull { it.edge?.rttUs }
+            if (serverRtts.isNotEmpty()) {
+                return (serverRtts.sum() / serverRtts.size / 1000).coerceAtLeast(1)
+            }
+
+            // Fallback is TCP connect time only. edgeDuration belongs to an HTTP
+            // request that is not part of this measurement, so it must never be
+            // subtracted here.
+            val ok = attemptResults.filter { it.coreSuccess }.map { it.tcpConnectMs }
+            return if (ok.isEmpty()) 0 else ok.sum() / ok.size
+        }
         val ok = latencies.filter { it > 0 }
         if (ok.isEmpty()) return 0
         val raw = ok.sum() / ok.size
@@ -89,9 +134,13 @@ data class ScanResult(
      * heavily is not scored as flawless.
      */
     fun loss(): Double {
-        val attemptLoss =
-            if (latencies.isEmpty()) 100.0
-            else (latencies.count { it == 0L }.toDouble() / latencies.size) * 100.0
+        val attemptLoss = if (attemptResults.isNotEmpty()) {
+            (attemptResults.count { !it.coreSuccess }.toDouble() / attemptResults.size) * 100.0
+        } else if (latencies.isEmpty()) {
+            100.0
+        } else {
+            (latencies.count { it == 0L }.toDouble() / latencies.size) * 100.0
+        }
 
         val e = edge ?: return attemptLoss
         val lost = e.lost ?: 0
@@ -116,15 +165,21 @@ data class ScanResult(
         if (attempts < 2 || successes < 2) return false
         if (loss() >= 50.0) return false
         if (avgMs() <= 0) return false
-        if (port != 80 && !tlsOk) return false
-        if (httpStatus !in 200..399) return false
-        if (colo.isEmpty()) return false
-        // The decisive check for Iran: survived the idle hold.
-        if (!stableOk) return false
+
+        if (attemptResults.isEmpty()) {
+            // Legacy results stored aggregate fields rather than full attempts.
+            if (port != 80 && !tlsOk) return false
+            if (httpStatus !in 200..399) return false
+            if (colo.isEmpty()) return false
+            if (!stableOk) return false
+        }
+
         // If a payload transfer was attempted, it had to actually move bytes.
         // Some IPs complete every handshake and answer /cdn-cgi/trace, then stall
         // the moment real data flows — a handshake-only probe cannot see that.
-        if (downloadTested && throughputBps <= 0) return false
+        if (downloadTested &&
+            (throughputBps <= 0 || downloadedBytes < MIN_DATA_GATE_BYTES)
+        ) return false
         return true
     }
 
@@ -197,6 +252,9 @@ data class ScanResult(
     }
 
     companion object {
+        /** Minimum payload proving that the connection carries real data. */
+        const val MIN_DATA_GATE_BYTES = 8 * 1024L
+
         /**
          * Cloudflare datacenters ranked by how well they usually serve Iran.
          *

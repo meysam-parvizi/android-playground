@@ -221,9 +221,30 @@ class EdgeTimingMetricsTest {
 
         val transferred = result(listOf(30, 31, 30)).apply {
             downloadTested = true
+            downloadedBytes = 8 * 1024
             throughputBps = 500_000
         }
         assertTrue(transferred.isHealthy())
+    }
+
+    @Test
+    fun tinyPartialDownloadDoesNotPassTheDataGate() {
+        val partial = result(listOf(30, 31, 30)).apply {
+            downloadTested = true
+            downloadedBytes = 8 * 1024 - 1L
+            throughputBps = 500_000
+        }
+        assertFalse(partial.isHealthy())
+    }
+
+    @Test
+    fun eightKilobytesPassesTheDataGate() {
+        val complete = result(listOf(30, 31, 30)).apply {
+            downloadTested = true
+            downloadedBytes = 8 * 1024L
+            throughputBps = 500_000
+        }
+        assertTrue(complete.isHealthy())
     }
 
     @Test
@@ -232,5 +253,16 @@ class EdgeTimingMetricsTest {
         val untested = result(listOf(30, 31, 30))
         assertFalse(untested.downloadTested)
         assertTrue(untested.isHealthy())
+    }
+
+    @Test
+    fun rttOnlyTelemetryIsStillUseful() {
+        val timing = ServerTimingParser.parse(
+            listOf("cfL4;desc=\"?proto=TCP&rtt=42000&rtt_var=2000&retrans=1\""),
+        )
+
+        assertEquals(42_000L, timing.rttUs)
+        assertEquals(2_000L, timing.rttVarUs)
+        assertTrue("RTT-only telemetry must not be discarded", timing.hasAnything)
     }
 }

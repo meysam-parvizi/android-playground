@@ -20,8 +20,12 @@ data class ScanConfig(
     val concurrency: Int = 16,
     val port: Int = 443,
     val tries: Int = 3,
+    /** Cancellable decorrelation delay between attempts; 0 disables it. */
+    val interAttemptDelayMinMs: Int = 0,
+    val interAttemptDelayMaxMs: Int = 0,
     val timeoutMs: Int = 4000,
     val idleHoldMs: Int = 2500,
+    val webSocketPreDataHoldMs: Int = 0,
     val testWebSocket: Boolean = true,
     /** Bias sampling toward ranges that behave better on filtered networks. */
     val preferIranFriendlyRanges: Boolean = true,
@@ -41,6 +45,18 @@ data class ScanConfig(
     val sizeWeightedSampling: Boolean = false,
     /** After a healthy hit, also probe its immediate neighbours. */
     val expandNeighbors: Boolean = true,
+    /**
+     * How far from a clean hit neighbour expansion may reach, and how many
+     * addresses it may spend there.
+     *
+     * Contiguous ±1, ±2 expansion spends every probe on four adjacent addresses
+     * that usually share one edge server's fate. Geometric offsets reach ±1, ±2,
+     * ±4 — twice as far for the same four probes per hit — which is where a
+     * second usable edge is actually likely to sit. Cost per hit is unchanged,
+     * so the global [neighborBudgetRatio] still expands the same number of hits.
+     */
+    val neighborRadius: Int = 32,
+    val neighborPerHit: Int = 4,
     /**
      * Bytes to pull from Cloudflare's speed endpoint per healthy candidate, or 0
      * to skip the transfer test.
@@ -80,10 +96,14 @@ data class ScanConfig(
          */
         fun forMode(count: Int, iranMode: Boolean): ScanConfig = ScanConfig(
             targetCount = count,
+            tries = if (iranMode) RESTRICTED_TRIES else STANDARD_TRIES,
+            interAttemptDelayMinMs = if (iranMode) RESTRICTED_JITTER_MIN_MS else 0,
+            interAttemptDelayMaxMs = if (iranMode) RESTRICTED_JITTER_MAX_MS else 0,
             preferIranFriendlyRanges = iranMode,
             // The idle hold proves an IP survives DPI, so keep it generous on a
             // restricted network and quick otherwise.
             idleHoldMs = if (iranMode) RESTRICTED_IDLE_HOLD_MS else STANDARD_IDLE_HOLD_MS,
+            webSocketPreDataHoldMs = if (iranMode) RESTRICTED_WS_PRE_DATA_HOLD_MS else 0,
             testWebSocket = iranMode,
             // Transfer a small payload on a restricted network: an IP that
             // handshakes cleanly and then stalls on real data is worse than
@@ -99,6 +119,11 @@ data class ScanConfig(
 
         /** Large enough to expose a stall, small enough not to lengthen the scan. */
         const val RESTRICTED_DOWNLOAD_BYTES = 128 * 1024
+        const val STANDARD_TRIES = 3
+        const val RESTRICTED_TRIES = 4
+        const val RESTRICTED_JITTER_MIN_MS = 50
+        const val RESTRICTED_JITTER_MAX_MS = 200
+        const val RESTRICTED_WS_PRE_DATA_HOLD_MS = 1_500
     }
 }
 
@@ -127,6 +152,9 @@ private fun defaultProber(config: ScanConfig): Prober = Prober(
     idleHoldMs = config.idleHoldMs,
     testWebSocket = config.testWebSocket,
     downloadBytes = config.downloadBytes,
+    webSocketPreDataHoldMs = config.webSocketPreDataHoldMs,
+    interAttemptDelayMinMs = config.interAttemptDelayMinMs,
+    interAttemptDelayMaxMs = config.interAttemptDelayMaxMs,
 )
 
 /**
@@ -401,14 +429,13 @@ class ScanEngine(
     }
 
     /**
-     * Returns the addresses immediately before and after [ip], staying inside
+     * Returns addresses spread geometrically around [ip], staying inside
      * Cloudflare's ranges.
      */
-    private fun neighborsOf(ip: String, span: Int = 2): List<String> {
+    private fun neighborsOf(ip: String): List<String> {
         val base = CloudflareRanges.ipToLong(ip)
         val out = mutableListOf<String>()
-        for (delta in -span..span) {
-            if (delta == 0) continue
+        for (delta in NeighborStrategy.offsets(config.neighborRadius, config.neighborPerHit)) {
             val candidate = base + delta
             if (candidate <= 0) continue
             if (CloudflareRanges.isCloudflare(candidate, nets)) {
