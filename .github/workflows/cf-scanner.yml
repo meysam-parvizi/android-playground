@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -38,7 +38,7 @@ jobs:
           java-version: "17"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Grant execute permission to gradlew
         run: chmod +x ./gradlew
@@ -62,7 +62,7 @@ jobs:
 
       - name: Upload test report on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: cf-scanner-test-report
           path: apps/cf-scanner/app/build/reports/tests/
@@ -89,7 +89,7 @@ jobs:
           ls -la "$OUT"
 
       - name: Upload APK artifact (every build)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ steps.apk.outputs.apk_name }}
           path: ${{ steps.apk.outputs.apk_path }}
@@ -97,7 +97,7 @@ jobs:
 
       - name: Publish GitHub Release (on tag)
         if: startsWith(github.ref, 'refs/tags/cf-scanner-v')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: "cf-scanner ${{ github.ref_name }}"
           files: ${{ steps.apk.outputs.apk_path }}
