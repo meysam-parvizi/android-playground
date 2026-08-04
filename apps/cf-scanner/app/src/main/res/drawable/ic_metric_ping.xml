@@ -1,0 +1,17 @@
+<!--
+  Speedometer: round-trip time.
+
+  Sized 16dp rather than the 24dp of the toolbar icons: this sits inline with
+  11sp text in a 62dp column, where a full-size icon would dominate the number
+  it labels.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="16dp"
+    android:height="16dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="?attr/colorOnSurfaceVariant">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M12,4C7.03,4 3,8.03 3,13c0,1.86 0.57,3.59 1.54,5.03L5.9,16.9C5.33,15.79 5,14.43 5,13c0,-3.87 3.13,-7 7,-7s7,3.13 7,7c0,1.43 -0.33,2.79 -0.9,3.9l1.36,1.13C20.43,16.59 21,14.86 21,13 21,8.03 16.97,4 12,4zM11,13a1,1 0,1 0,2 0,1 1,0 0,0 -2,0zM12.5,12.2l4,-4.7 -5.2,3.9c-0.5,0.4 -0.6,1.1 -0.2,1.6s1.1,0.6 1.6,0.2c0.2,-0.2 0.3,-0.4 0.4,-0.6z" />
+</vector>

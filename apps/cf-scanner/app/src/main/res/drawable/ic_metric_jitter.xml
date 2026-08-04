@@ -1,0 +1,17 @@
+<!--
+  Waveform: how much the round-trip time varies.
+
+  Sized 16dp rather than the 24dp of the toolbar icons: this sits inline with
+  11sp text in a 62dp column, where a full-size icon would dominate the number
+  it labels.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="16dp"
+    android:height="16dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="?attr/colorOnSurfaceVariant">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M2,12h2.5c0.6,0 0.8,-0.3 1,-0.8L7,7.5c0.3,-0.9 1.6,-0.9 1.9,0l2.6,8.4c0.3,0.9 1.6,0.9 1.9,0l1.7,-5.3c0.2,-0.5 0.4,-0.8 1,-0.8H22v2h-4.5c-0.6,0 -0.8,0.3 -1,0.8l-1.7,5.3c-0.3,0.9 -1.6,0.9 -1.9,0L10.3,9.1C10,8.2 8.7,8.2 8.4,9.1L7.5,12.2C7.3,12.7 7.1,13 6.5,13H2z" />
+</vector>

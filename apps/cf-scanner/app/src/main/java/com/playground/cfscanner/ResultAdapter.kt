@@ -111,40 +111,24 @@ class ResultAdapter(
         holder.context.text = context
         holder.context.visibility = if (context.isEmpty()) View.GONE else View.VISIBLE
 
-        // Three fixed columns rather than one run of text. Inline, the fields
-        // shift with every change in digit count, so comparing jitter across
-        // rows means locating the label again on each line.
+        // Four fixed columns, each labelled by an icon rather than a word.
+        // 'Ping'/'Jitter'/'Loss'/'Speed' repeated on every one of hundreds of
+        // rows cost more width than the values themselves and pushed the last
+        // column into an ellipsis. The icons are explained in the About screen.
         val bright = themeColour(ctx, com.google.android.material.R.attr.colorOnSurface)
-        holder.ping.text = metric(
-            ctx.getString(R.string.chip_ping, Format.millis(r.avgMs())),
-            Format.millis(r.avgMs()),
-            bright,
-        )
-        holder.jitter.text = metric(
-            ctx.getString(R.string.chip_jitter, Format.millis(r.jitterMs())),
-            Format.millis(r.jitterMs()),
-            bright,
-        )
-        val lossValue = Format.percent(r.loss().toInt())
-        holder.loss.text = metric(
-            ctx.getString(R.string.chip_loss, lossValue),
-            lossValue,
+        holder.ping.text = value(Format.millis(r.avgMs()), bright)
+        holder.jitter.text = value(Format.millis(r.jitterMs()), bright)
+        holder.loss.text = value(
+            Format.percent(r.loss().toInt()),
             // Loss is the metric worth flagging; the others stay neutral.
             if (r.loss() > 0) ctx.getColor(R.color.grade_weak) else bright,
         )
 
-        // Throughput, when the scan measured it. Blank outside restricted-network
-        // mode rather than showing a zero, which would read as a real result.
-        if (r.throughputBps > 0) {
-            val speedValue = Format.speed(r.throughputBps)
-            holder.speed.text = metric(
-                ctx.getString(R.string.chip_speed, speedValue),
-                speedValue,
-                bright,
-            )
-        } else {
-            holder.speed.text = ""
-        }
+        // Throughput, when the scan measured it. The column is left blank rather
+        // than showing a zero, which would read as a real measurement.
+        val hasSpeed = r.throughputBps > 0
+        holder.speed.text = if (hasSpeed) value(Format.speed(r.throughputBps), bright) else ""
+        holder.speed.visibility = if (hasSpeed) View.VISIBLE else View.INVISIBLE
 
         // The row is one accessibility stop announcing everything, rather than
         // a card plus six focusable chips that each said a value and did nothing.
@@ -155,17 +139,17 @@ class ResultAdapter(
             append(", ")
             append(holder.score.text)
             append(", ")
-            append(holder.ping.text)
+            // Spoken in words: the columns are labelled by icons on screen,
+            // which a screen reader cannot announce.
+            append(ctx.getString(R.string.chip_ping, Format.millis(r.avgMs())))
             append(", ")
-            append(holder.jitter.text)
+            append(ctx.getString(R.string.chip_jitter, Format.millis(r.jitterMs())))
             append(", ")
-            append(holder.loss.text)
-            if (holder.speed.text.isNotEmpty()) {
+            append(ctx.getString(R.string.chip_loss, Format.percent(r.loss().toInt())))
+            if (hasSpeed) {
                 append(", ")
-                append(holder.speed.text)
+                append(ctx.getString(R.string.chip_speed, Format.speed(r.throughputBps)))
             }
-            // The grade carries a ⚡ for WebSocket support, which a screen
-            // reader does not announce, so it is stated in words here.
             if (r.wsOk) {
                 append(", ")
                 append(ctx.getString(R.string.chip_ws))
@@ -218,28 +202,22 @@ class ResultAdapter(
     }
 
     /**
-     * Formats one metric with only its value brightened.
+     * Colours a bare metric value.
      *
-     * The label stays in the dim column colour and the number is lifted to the
-     * surface colour — a 1.77x luminance step. Without it "Ping 41" reads as one
-     * undifferentiated blob at label size.
-     *
-     * The value is located inside the already-formatted string rather than
-     * assumed to sit at the end, so this holds for any language whose phrasing
-     * puts the number first.
+     * There is no label to separate any more — the icon carries the meaning — so
+     * the whole string takes the colour. The values already arrive wrapped in
+     * directional isolates from [Format], which keeps them ordered correctly
+     * inside a right-to-left row.
      */
-    private fun metric(formatted: String, value: String, colour: Int): CharSequence {
-        val at = formatted.lastIndexOf(value)
-        if (at < 0) return formatted
-        return SpannableStringBuilder(formatted).apply {
+    private fun value(text: String, colour: Int): CharSequence =
+        SpannableStringBuilder(text).apply {
             setSpan(
                 ForegroundColorSpan(colour),
-                at,
-                at + value.length,
+                0,
+                length,
                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
             )
         }
-    }
 
     override fun getItemCount(): Int = items.size
 

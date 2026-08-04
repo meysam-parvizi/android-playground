@@ -82,7 +82,7 @@ Material 3, with light and dark themes and full RTL layout. One screen, everythi
 - **Status card** — current state, live progress bar, and a green badge counting healthy finds
 - **Settings card** — how many addresses to test, sort criterion, and a **restricted-network** switch carrying a one-line explanation of what it changes
 - **Scan / Stop** — one large primary button that swaps label and icon with state
-- **Results** — one card per IP, two lines of fixed shape: the address, its datacenter and its score on top, then four equal-weight columns of ping, jitter, loss and throughput. Values are lifted to the surface colour while their labels stay dim, so the numbers carry the eye down the list. Loss is tinted when non-zero, and a mark beside the grade shows WebSocket carry.
+- **Results** — one card per IP, two lines of fixed shape: the address, its datacenter and its score on top, then four equal-weight columns of ping, jitter, loss and throughput, each marked by an icon rather than a word. The About screen names them. Values are lifted to the surface colour while their labels stay dim, so the numbers carry the eye down the list. Loss is tinted when non-zero, and a mark beside the grade shows WebSocket carry.
 - **Empty state** — distinguishes "not scanned yet" from "scan finished, nothing found", each with a useful hint
 - **Copy** puts a bare list of addresses on the clipboard — one IP per line, best first, nothing else:
 
@@ -260,7 +260,9 @@ In landscape the expanded title is suppressed entirely (`values-land/dimens.xml`
 
 The metrics sit in four equal-weight columns rather than in one run of text. Written inline as `Ping 41 · Jitter 3 · Loss 0%` the fields shift horizontally with every change in digit count, so comparing jitter down a ranked list means locating the label again on each row — precisely what a ranked list exists to avoid. Fixed columns line the values up, so one glance reads `3 → 9 → 22`.
 
-Values are drawn in the surface colour and their labels left dim, a 1.77x luminance step resolved from the theme rather than added to the palette. Without that contrast `Ping 41` reads as one undifferentiated blob at label size.
+Each column is marked by an icon rather than a word. `Ping`, `Jitter`, `Loss` and `Speed` spelled out cost more width than the values they described and pushed the last column into an ellipsis — twice, because estimating text width by character count kept landing just inside the column and just outside reality. An icon is a fixed 16dp regardless of language. The About screen names each one.
+
+Values take the surface colour against the dim icon, so the numbers carry the eye down the list.
 
 WebSocket carry is a mark beside the grade rather than a column — it is a pass/fail capability, not a measurement — and is still spoken in full for screen readers, since the glyph itself is silent.
 
@@ -369,7 +371,7 @@ Built by [`.github/workflows/cf-scanner.yml`](../../.github/workflows/cf-scanner
 - Every push/PR touching `apps/cf-scanner/**` runs the unit tests, builds the APK, and uploads it as an artifact
 - Pushing a tag `cf-scanner-v<version>` publishes the APK as a GitHub Release asset
 
-Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.6.1**.
+Version comes from `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts). Current: **0.6.2**.
 
 ## Details
 
