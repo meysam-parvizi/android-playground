@@ -17,6 +17,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="@dimen/card_gap"
+    android:layoutDirection="locale"
     android:clickable="true"
     android:focusable="true"
     app:cardCornerRadius="@dimen/radius_card"

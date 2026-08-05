@@ -34,6 +34,27 @@ class LayoutDirectionTest {
     }
 
     @Test
+    fun theDeclarationIsOnTheRootOfEachItem() {
+        // Declaring it on an inner container is not enough: RecyclerView inflates
+        // the item's ROOT view, so that root is where the heuristic runs. A card
+        // whose MaterialCardView lacks the attribute still resolves itself from
+        // its first strong character, which is the Latin digit of an IP.
+        for (name in listOf("item_result.xml", "item_header.xml", "item_empty_state.xml")) {
+            // Strip the XML declaration and any leading comment, then take the
+            // first real element: that is the root RecyclerView inflates.
+            val text = layout(name)
+                .replace(Regex("<\\?xml.*?\\?>", RegexOption.DOT_MATCHES_ALL), "")
+                .replace(Regex("<!--.*?-->", RegexOption.DOT_MATCHES_ALL), "")
+            val rootAttrs = text.substring(0, text.indexOf('>', text.indexOf('<')))
+            assertTrue(
+                "$name declares the direction only on an inner view; the item root " +
+                    "is what RecyclerView inflates and what the heuristic resolves",
+                rootAttrs.contains(layoutDir),
+            )
+        }
+    }
+
+    @Test
     fun theIpKeepsItsOwnLatinDirectionWithoutFlippingTheCard() {
         val result = layout("item_result.xml")
         // The IP itself stays LTR — it is copied into configs verbatim.
