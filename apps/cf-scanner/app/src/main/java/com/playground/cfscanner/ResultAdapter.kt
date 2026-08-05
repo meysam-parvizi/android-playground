@@ -68,6 +68,19 @@ class ResultAdapter(
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
         val v = LayoutInflater.from(parent.context).inflate(R.layout.item_result, parent, false)
+
+        // Copy the list's own resolved direction onto the card.
+        //
+        // Items are inflated with attachToRoot=false, so a card has no parent
+        // when it resolves its RTL properties. android:layoutDirection="locale"
+        // then resolves against Locale.getDefault() rather than the list, and
+        // this app rewrites that default when applying its language — so cards
+        // created before and after that call disagreed, and the direction
+        // appeared to alternate with scroll position rather than content.
+        //
+        // Taking the value from the attached parent removes the ambiguity: there
+        // is one resolved direction on screen and every card is given it.
+        v.layoutDirection = parent.layoutDirection
         return Holder(v)
     }
 

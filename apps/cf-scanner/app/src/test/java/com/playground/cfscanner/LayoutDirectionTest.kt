@@ -86,6 +86,39 @@ class LayoutDirectionTest {
     }
 
     @Test
+    fun theAdapterForcesItemsToMatchTheListDirection() {
+        // XML alone cannot fix this. Items are inflated with attachToRoot=false,
+        // so a card has no parent when it resolves RTL properties, and
+        // layoutDirection="locale" then resolves against Locale.getDefault() —
+        // which this app rewrites when applying its language. Three XML-only
+        // attempts failed for that reason. The adapter must copy the list's own
+        // resolved direction onto each card.
+        val adapter = java.io.File(
+            "src/main/java/com/playground/cfscanner/ResultAdapter.kt",
+        ).readText()
+
+        assertTrue(
+            "ResultAdapter must set the item's layoutDirection from its parent " +
+                "in onCreateViewHolder; XML attributes alone do not survive " +
+                "attachToRoot=false inflation",
+            adapter.contains("layoutDirection = parent.layoutDirection"),
+        )
+    }
+
+    @Test
+    fun theListItselfDeclaresADirection() {
+        // The parent the adapter copies from has to be right in the first place.
+        val main = layout("activity_main.xml")
+        val rv = main.substring(main.indexOf("<androidx.recyclerview"))
+        val rvTag = rv.substring(0, rv.indexOf("/>"))
+        assertTrue(
+            "the RecyclerView must declare its own direction, since every card " +
+                "now inherits it",
+            rvTag.contains(layoutDir),
+        )
+    }
+
+    @Test
     fun persianTextIsIsolatedFromLatinNeighbours() {
         // Format.isolate wraps a run in FSI/PDI so a Latin token inside Persian
         // text cannot reorder the sentence around it.
