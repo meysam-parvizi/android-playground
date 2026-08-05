@@ -75,6 +75,6 @@
         android:paddingStart="@dimen/space_l"
         android:paddingEnd="@dimen/space_l"
         android:paddingBottom="@dimen/space_xl"
-        android:scrollbars="vertical" />
+        android:scrollbars="none" />
 
 </LinearLayout>

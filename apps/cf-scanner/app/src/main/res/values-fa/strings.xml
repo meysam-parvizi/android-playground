@@ -39,9 +39,6 @@
 
     <string name="status_idle">آماده‌ی اسکن</string>
     <string name="status_scanning">در حال اسکن…</string>
-    <string name="status_measuring">در حال سنجش سرعت…</string>
-    <string name="empty_measuring">در حال سنجش سرعت</string>
-    <string name="empty_measuring_hint">سرعت واقعی دانلود روی بهترین نتیجه‌ها بررسی می‌شود</string>
     <!-- Spelling out "تست‌شده" and "تمیز" so the two numbers cannot be confused
          with each other, and stating the target rather than a bare total. -->
     <string name="status_progress">%1$s آی‌پی تست شد از %2$s</string>
@@ -144,7 +141,7 @@
     <!-- Shown where a measurement was not taken. Language-neutral. -->
     <string name="metric_absent">\u2014</string>
     <string name="label_speed_test">تست سرعت</string>
-    <string name="hint_speed_test_warning">⚠️ از طریق هر آی‌پی داده‌ی واقعی دانلود می‌کند و می‌تواند حجم زیادی از اینترنت شما را مصرف کند</string>
+    <string name="hint_speed_test_warning">⚠️ از طریق هر آی‌پی حجم ثابتی داده‌ی واقعی دانلود می‌کند و سرعت دانلود را می‌سنجد. توجه کنید در صورت بالا بودن تعداد آی‌پی‌ها حجم قابل توجهی از داده‌ی شما مصرف می‌شود. با آگاهی فعال کنید.</string>
     <string name="label_speed_size">حجم دانلود هر آی‌پی</string>
     <string name="speed_size_kb">%1$s کیلوبایت</string>
     <string name="speed_size_mb">%1$s مگابایت</string>

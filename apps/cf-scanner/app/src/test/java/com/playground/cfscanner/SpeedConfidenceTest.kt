@@ -119,19 +119,12 @@ class SpeedConfidenceTest {
     }
 
     @Test
-    fun everyHealthyResultIsShortlistedWhenEnabled() {
-        val results = List(40) { i ->
-            benchmarked(512 * 1024, 1_000_000).also { it.benchmarked = false }
-        }
-        val healthy = results.count { it.isHealthy() }
-        assertEquals(healthy, SpeedPhase.shortlist(results).size)
-    }
-
-    @Test
-    fun unhealthyResultsAreStillExcluded() {
+    fun onlyHealthyResultsAreWorthMeasuring() {
+        // Benchmarking is now inline in the engine (see InlineBenchmarkTest);
+        // what remains testable here is that an unhealthy result never claims a
+        // speed, so it cannot be ranked on one.
         val broken = ScanResult(ip = "9.9.9.9", port = 443)
-        val good = benchmarked(512 * 1024, 1_000_000).also { it.benchmarked = false }
-
-        assertEquals(listOf(good.ip), SpeedPhase.shortlist(listOf(broken, good)).map { it.ip })
+        assertFalse(broken.isHealthy())
+        assertFalse(broken.hasMeasuredSpeed)
     }
 }

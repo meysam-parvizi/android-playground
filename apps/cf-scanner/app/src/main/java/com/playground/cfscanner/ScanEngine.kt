@@ -141,7 +141,7 @@ data class ScanConfig(
          * than just completing handshakes. Downloading a benchmark-sized payload
          * here would cost 16x the data and still measure contention rather than
          * speed, because discovery runs at full concurrency — so the real
-         * measurement happens in [SpeedPhase] instead.
+         * measurement is a separate, rate-limited benchmark instead.
          */
         const val DISCOVERY_GATE_BYTES = 8 * 1024
         const val STANDARD_TRIES = 3
@@ -228,6 +228,14 @@ class ScanEngine(
 
     private val rnd = Random()
 
+    /**
+     * Limits how many benchmarks run at once, independently of scan concurrency.
+     *
+     * A speed figure is only comparable if it was taken under comparable
+     * conditions, so this stays narrow even while discovery runs wide.
+     */
+    private val speedGate = Semaphore(config.speedConcurrency)
+
     /** Cloudflare's ranges, parsed once rather than per healthy hit. */
     private val nets by lazy { CloudflareRanges.parseAll() }
 
@@ -241,9 +249,6 @@ class ScanEngine(
     suspend fun scan(
         onProgress: suspend (ScanProgress) -> Unit,
         onResult: suspend (ScanResult) -> Unit,
-        // Default no-op so existing callers and tests are unaffected by the
-        // second stage.
-        onSpeedPhaseStart: suspend () -> Unit = {},
     ): ScanOutcome {
         val prober = proberFactory(config)
 
@@ -319,13 +324,6 @@ class ScanEngine(
 
         val gathered = results.toList()
 
-        // Second stage: measure real throughput on the best few, now that
-        // nothing else is competing for bandwidth.
-        runSpeedPhase(
-            prober, gathered, onProgress, onSpeedPhaseStart,
-            probed.get(), planned.get(), healthyCount.get(),
-        )
-
         val ranked = withContext(Dispatchers.Default) {
             Ranking.sort(gathered, SortBy.SCORE)
         }
@@ -338,53 +336,6 @@ class ScanEngine(
             everyProbeFailed = gathered.isNotEmpty() &&
                 totalFailures.get() >= gathered.size,
         )
-    }
-
-    /**
-     * Measures throughput on the shortlist, a few IPs at a time.
-     *
-     * Deliberately sequential-ish and after discovery: benchmarking at scan
-     * concurrency makes every candidate look slow because they compete for one
-     * radio. Results are mutated in place, so the ranking below picks the
-     * measurements up.
-     */
-    private suspend fun runSpeedPhase(
-        prober: Prober,
-        gathered: List<ScanResult>,
-        onProgress: suspend (ScanProgress) -> Unit,
-        onSpeedPhaseStart: suspend () -> Unit,
-        probed: Int,
-        planned: Int,
-        healthy: Int,
-    ) {
-        if (!config.speedTestEnabled) return
-        val shortlist = SpeedPhase.shortlist(gathered)
-        if (shortlist.isEmpty()) return
-
-        // Tell the UI the scan moved to its second stage: probed == total from
-        // here on, so progress alone cannot explain the wait.
-        deliver { onSpeedPhaseStart() }
-
-        val gate = Semaphore(config.speedConcurrency)
-        coroutineScope {
-            for (result in shortlist) {
-                launch(Dispatchers.IO) {
-                    gate.withPermit {
-                        currentCoroutineContext().ensureActive()
-                        // One controlled retry: a single failed transfer is
-                        // usually transient, but retrying forever would turn a
-                        // bounded stage into an unbounded one.
-                        repeat(config.speedRetries + 1) { attempt ->
-                            if (attempt > 0 && result.hasMeasuredSpeed) return@repeat
-                            prober.measureSpeed(result, config.speedTestBytes)
-                        }
-                        deliver {
-                            onProgress(ScanProgress(probed, planned, healthy, result.ip))
-                        }
-                    }
-                }
-            }
-        }
     }
 
     /** Atomically takes one unit of expansion budget; false when exhausted. */
@@ -425,6 +376,13 @@ class ScanEngine(
 
         // A healthy hit is rare and important, so it is never throttled away.
         if (r.isHealthy()) {
+            // Measured here, before the result is published, so a row is final
+            // the moment it appears. Running this as a phase after the scan meant
+            // a clean IP showed up with no speed and a provisional grade, then
+            // silently changed once the real measurement arrived.
+            if (config.speedTestEnabled) {
+                measureSpeed(prober, r)
+            }
             healthyCount.incrementAndGet()
             deliver { onResult(r) }
         }
@@ -441,6 +399,24 @@ class ScanEngine(
             }
         }
         return r
+    }
+
+    /**
+     * Benchmarks one discovered IP, with a controlled retry.
+     *
+     * Serialised through [speedGate] regardless of scan concurrency. Sixteen
+     * simultaneous downloads share one radio, so measuring them in parallel
+     * times the queue rather than the edge — the figure would drop as the scan
+     * got busier, which is the opposite of a comparable measurement.
+     */
+    private suspend fun measureSpeed(prober: Prober, result: ScanResult) {
+        speedGate.withPermit {
+            repeat(config.speedRetries + 1) { attempt ->
+                if (attempt > 0 && result.hasMeasuredSpeed) return@repeat
+                currentCoroutineContext().ensureActive()
+                prober.measureSpeed(result, config.speedTestBytes)
+            }
+        }
     }
 
     /**

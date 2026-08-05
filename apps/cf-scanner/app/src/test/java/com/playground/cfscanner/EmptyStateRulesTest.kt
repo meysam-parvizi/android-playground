@@ -134,7 +134,7 @@ class HeaderStateTest {
         // isScanning means "work in flight", which drives the Stop button and the
         // locked inputs. Discovery and the speed benchmark are both in flight;
         // every settled phase is not.
-        val busy = setOf(ScanPhase.SCANNING, ScanPhase.MEASURING)
+        val busy = setOf(ScanPhase.SCANNING)
         for (phase in busy) {
             assertEquals("$phase must report scanning", true, HeaderState(phase = phase).isScanning)
         }

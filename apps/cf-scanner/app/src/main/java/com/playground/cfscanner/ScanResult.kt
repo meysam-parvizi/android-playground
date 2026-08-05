@@ -44,6 +44,8 @@ data class ScanResult(
      * promote it to "good" once the real measurement arrived.
      */
     var benchmarked: Boolean = false,
+    /** Payload actually received by the benchmark; drives confidence weighting. */
+    var benchmarkBytes: Long = 0,
     /**
      * Whether a payload download was attempted at all.
      *
@@ -106,10 +108,16 @@ data class ScanResult(
     val hasMeasuredSpeed: Boolean
         get() = benchmarked && throughputBps > 0
 
-    /** Records the outcome of a speed benchmark, successful or not. */
+    /**
+     * Records the outcome of a speed benchmark, successful or not.
+     *
+     * Written to its own fields rather than over [downloadedBytes]: the health
+     * gate's evidence has to survive, or a failed benchmark would erase the
+     * proof that the IP carries data and delete a result that is actually fine.
+     */
     fun recordBenchmark(bytes: Long, bps: Long) {
         benchmarked = true
-        downloadedBytes = bytes
+        benchmarkBytes = bytes
         throughputBps = bps
     }
 
@@ -211,12 +219,10 @@ data class ScanResult(
         // If a payload transfer was attempted, it had to actually move bytes.
         // Some IPs complete every handshake and answer /cdn-cgi/trace, then stall
         // the moment real data flows — a handshake-only probe cannot see that.
-        // The health gate: if a transfer was attempted, it had to move real
-        // bytes. A benchmark failure is deliberately NOT a health failure — the
-        // benchmark measures speed on an IP that already passed every test.
-        if (dataPathVerified && !benchmarked &&
-            (throughputBps <= 0 || downloadedBytes < MIN_DATA_GATE_BYTES)
-        ) return false
+        //
+        // Reads only the gate's own figures. A failed benchmark is not a health
+        // failure: it measures speed on an IP that already passed every test.
+        if (dataPathVerified && downloadedBytes < MIN_DATA_GATE_BYTES) return false
         return true
     }
 
@@ -304,7 +310,7 @@ data class ScanResult(
         // measures ~32 Mb/s. Applying the same penalty to both would make the
         // score depend on the download-size setting rather than on the IP, and
         // results taken at different sizes could not be compared.
-        val confidence = speedConfidence(downloadedBytes)
+        val confidence = speedConfidence(benchmarkBytes)
         return raw + (1.0 - raw) * (1.0 - confidence)
     }
 

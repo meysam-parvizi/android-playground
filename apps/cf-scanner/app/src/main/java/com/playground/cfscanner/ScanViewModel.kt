@@ -147,9 +147,6 @@ class ScanViewModel : ViewModel() {
                         update { it.copy(resultCount = found.size) }
                         resort()
                     },
-                    onSpeedPhaseStart = {
-                        update { it.copy(phase = ScanPhase.MEASURING) }
-                    },
                 )
                 // Flush any debounced re-rank so the final list is complete.
                 resort(immediate = true)

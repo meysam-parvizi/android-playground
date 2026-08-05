@@ -31,9 +31,6 @@
 
     <string name="status_idle">Ready to scan</string>
     <string name="status_scanning">Scanning…</string>
-    <string name="status_measuring">Measuring speed…</string>
-    <string name="empty_measuring">Measuring speed</string>
-    <string name="empty_measuring_hint">Checking real download speed on the best results</string>
     <string name="status_progress">Tested %1$s of %2$s</string>
     <string name="status_done">Scan complete</string>
     <string name="status_done_detail">%1$s tested: %2$s clean, %3$s failed</string>
@@ -110,7 +107,7 @@
     <!-- Shown where a measurement was not taken. Language-neutral. -->
     <string name="metric_absent">\u2014</string>
     <string name="label_speed_test">Speed test</string>
-    <string name="hint_speed_test_warning">⚠️ Downloads real data through each tested IP and can use a lot of mobile data</string>
+    <string name="hint_speed_test_warning">⚠️ Downloads a fixed amount of real data through each IP and measures its download speed. With a large number of IPs this consumes a significant amount of data. Enable it deliberately.</string>
     <string name="label_speed_size">Download per IP</string>
     <string name="speed_size_kb">%1$s KB</string>
     <string name="speed_size_mb">%1$s MB</string>
