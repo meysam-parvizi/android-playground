@@ -17,7 +17,6 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="@dimen/card_gap"
-    android:layoutDirection="locale"
     android:clickable="true"
     android:focusable="true"
     app:cardCornerRadius="@dimen/radius_card"
@@ -40,8 +39,7 @@
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layoutDirection="locale"
-        android:padding="@dimen/space_l">
+            android:padding="@dimen/space_l">
 
         <!-- Full-width technical identifier; always LTR and copied verbatim. -->
         <TextView
@@ -64,7 +62,6 @@
         -->
         <TextView
             android:id="@+id/rowScore"
-            android:textDirection="locale"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:minWidth="60dp"
@@ -82,7 +79,6 @@
         <!-- Metadata stays out of the primary line, so neither field can collide. -->
         <TextView
             android:id="@+id/rowRank"
-            android:textDirection="locale"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/space_xs"
@@ -93,7 +89,6 @@
 
         <TextView
             android:id="@+id/rowContext"
-            android:textDirection="locale"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="@dimen/space_s"
@@ -110,7 +105,6 @@
         -->
         <TextView
             android:id="@+id/rowPing"
-            android:textDirection="locale"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/space_m"
@@ -131,7 +125,6 @@
 
         <TextView
             android:id="@+id/rowJitter"
-            android:textDirection="locale"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:gravity="center"
@@ -149,7 +142,6 @@
 
         <TextView
             android:id="@+id/rowLoss"
-            android:textDirection="locale"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:gravity="center"
@@ -167,7 +159,6 @@
 
         <TextView
             android:id="@+id/rowSpeed"
-            android:textDirection="locale"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:gravity="center"
