@@ -67,7 +67,7 @@
     <string name="chip_loss">%1$s</string>
     <string name="chip_speed">%1$s Mb/s</string>
     <string name="chip_ws">\u2068WebSocket\u2069</string>
-    <string name="score_and_grade">%2$s\u00A0\u00A0%1$s</string>
+    <string name="score_and_grade">%2$s\u00A0\u2009|\u2009\u00A0%1$s</string>
 
     <string name="toast_copied">%1$s IPs copied</string>
     <string name="toast_copied_one">%1$s copied</string>
@@ -102,7 +102,7 @@
 
     <!-- Same as score_and_grade, with a mark for WebSocket support. The
          glyph is language-neutral, so all three files share it. -->
-    <string name="score_grade_ws">%2$s\u00A0\u00A0%1$s\u00A0⚡</string>
+    <string name="score_grade_ws">%2$s\u00A0\u2009|\u2009\u00A0%1$s\u00A0⚡</string>
 
     <!-- Shown where a measurement was not taken. Language-neutral. -->
     <string name="metric_absent">\u2014</string>

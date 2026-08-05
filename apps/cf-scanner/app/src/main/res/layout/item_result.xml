@@ -77,6 +77,14 @@
             app:layout_constraintTop_toTopOf="parent" />
 
         <!-- Metadata stays out of the primary line, so neither field can collide. -->
+        <!--
+          Rank sits at the opposite edge from the datacenter code.
+
+          The two used to be adjacent, reading "rank 9 VIE" as though it were one
+          phrase — two unrelated facts that happened to be next to each other.
+          Pushing them to opposite edges of the same line makes it plain they are
+          separate, and costs no vertical space.
+        -->
         <TextView
             android:id="@+id/rowRank"
             android:layout_width="wrap_content"
@@ -84,18 +92,19 @@
             android:layout_marginTop="@dimen/space_xs"
             android:textAppearance="@style/TextAppearance.CfScanner.Label"
             android:textColor="?attr/colorOnSurfaceVariant"
-            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toBottomOf="@id/rowScore" />
 
         <TextView
             android:id="@+id/rowContext"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="@dimen/space_s"
             android:textAppearance="@style/TextAppearance.CfScanner.Label"
             android:textColor="?attr/colorOnSurfaceVariant"
             android:singleLine="true"
-            app:layout_constraintStart_toEndOf="@id/rowRank"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/rowRank"
+            app:layout_constraintHorizontal_bias="0.0"
             app:layout_constraintBaseline_toBaselineOf="@id/rowRank" />
 
         <!--
