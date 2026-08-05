@@ -58,22 +58,25 @@ class LayoutDirectionTest {
     }
 
     @Test
-    fun theAdapterTakesDirectionFromTheConfiguration() {
-        // Not from parent.layoutDirection: that is a *resolved* value, and
-        // resolution has not necessarily run when the first holders are created.
-        // An unresolved parent reports LTR, so the earliest cards came out
-        // left-to-right and later ones right-to-left — the mismatch tracked
-        // scroll position. Configuration.layoutDirection is a plain field on the
-        // context and is correct from the first call.
+    fun theAdapterTakesDirectionFromTheSelectedLanguage() {
+        // Not from any View. parent.layoutDirection is a resolved value that
+        // reports LTR before resolution runs, and Configuration.layoutDirection
+        // depends on which context the inflater carried. Both left early holders
+        // disagreeing with later ones. FormatDirectionTest asserts the value
+        // itself; this only guards against a regression to a view-derived source.
         val adapter = source("ResultAdapter.kt")
 
         assertTrue(
-            "ResultAdapter must read the direction from the Configuration",
-            adapter.contains("configuration.layoutDirection"),
+            "ResultAdapter must use Format.layoutDirection",
+            adapter.contains("Format.layoutDirection"),
         )
         assertTrue(
-            "reading parent.layoutDirection is unreliable before resolution",
+            "parent.layoutDirection is unreliable before resolution",
             !adapter.contains("= parent.layoutDirection"),
+        )
+        assertTrue(
+            "Configuration.layoutDirection depends on the inflater's context",
+            !adapter.contains("configuration.layoutDirection"),
         )
     }
 

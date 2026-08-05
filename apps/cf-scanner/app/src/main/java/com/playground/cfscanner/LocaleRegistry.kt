@@ -23,6 +23,14 @@ data class AppLocale(
     val tag: String,
     val endonym: String,
     val usesPersianDigits: Boolean = false,
+    /**
+     * Writing direction of this language.
+     *
+     * Declared rather than derived: deriving it needs a framework call that is
+     * stubbed in unit tests, and the set of languages this app offers is a
+     * short hand-maintained list anyway.
+     */
+    val isRightToLeft: Boolean = false,
 ) {
     /** Resolved Java locale, used for layout direction and platform formatting. */
     val javaLocale: Locale get() = Locale.forLanguageTag(tag)
@@ -48,7 +56,7 @@ object LocaleRegistry {
      * Persian-speaking. The order here is the order shown in the picker.
      */
     val SUPPORTED: List<AppLocale> = listOf(
-        AppLocale(tag = "fa", endonym = "فارسی", usesPersianDigits = true),
+        AppLocale(tag = "fa", endonym = "فارسی", usesPersianDigits = true, isRightToLeft = true),
         AppLocale(tag = "en", endonym = "English", usesPersianDigits = false),
     )
 

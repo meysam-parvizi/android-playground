@@ -47,6 +47,26 @@ object Format {
         locale = newLocale
     }
 
+    /**
+     * Layout direction of the active language.
+     *
+     * The single source of truth for direction in this app. Views cannot be
+     * asked: `layoutDirection` is a *resolved* value that reports LTR before
+     * resolution has run, and `layoutDirection="locale"` resolves against the
+     * process-global `Locale.getDefault()` — which this app rewrites when
+     * applying its language. Both made RecyclerView items disagree by creation
+     * order. This value is set before any view exists and never changes without
+     * an activity recreate.
+     */
+    val layoutDirection: Int
+        get() = if (locale.isRightToLeft) LAYOUT_DIRECTION_RTL else LAYOUT_DIRECTION_LTR
+
+    /** Mirrors View.LAYOUT_DIRECTION_LTR without depending on the framework. */
+    const val LAYOUT_DIRECTION_LTR = 0
+
+    /** Mirrors View.LAYOUT_DIRECTION_RTL. */
+    const val LAYOUT_DIRECTION_RTL = 1
+
 
     /**
      * Converts ASCII digits to the digit shape of the active language.

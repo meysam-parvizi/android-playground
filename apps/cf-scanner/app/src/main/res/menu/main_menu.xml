@@ -2,13 +2,19 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
+    <!--
+      Both actions live in the overflow.
+
+      Language was a permanent toolbar icon for a setting most users touch once,
+      and it cost the title a 48dp slot on every screen. In the overflow it is
+      one extra tap and gains a text label, which is clearer than a globe glyph.
+    -->
     <item
         android:id="@+id/action_language"
         android:icon="@drawable/ic_language"
         android:title="@string/action_language"
-        app:showAsAction="always" />
+        app:showAsAction="never" />
 
-    <!-- Kept in the overflow so the full title has a stable width on narrow phones. -->
     <item
         android:id="@+id/action_about"
         android:icon="@drawable/ic_info"

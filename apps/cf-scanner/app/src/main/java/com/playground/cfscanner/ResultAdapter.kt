@@ -69,16 +69,15 @@ class ResultAdapter(
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
         val v = LayoutInflater.from(parent.context).inflate(R.layout.item_result, parent, false)
 
-        // Take the direction from the Configuration, not from the parent.
+        // Direction comes from the selected language, not from any View.
         //
-        // parent.layoutDirection is a *resolved* value, and resolution has not
-        // necessarily happened when the first holders are created — an
-        // unresolved parent reports LTR, so the earliest cards were built
-        // left-to-right and later ones right-to-left, which is why the mismatch
-        // tracked scroll position. Configuration.getLayoutDirection() is a plain
-        // field on the context this view was inflated from: correct from the
-        // first call, no resolution or attachment required.
-        v.layoutDirection = parent.context.resources.configuration.layoutDirection
+        // Two view-derived sources were tried and both failed: parent
+        // .layoutDirection is a *resolved* value that reports LTR before
+        // resolution runs, and Configuration.layoutDirection depends on which
+        // context the inflater happened to carry. Both left the first holders
+        // disagreeing with later ones, so direction tracked scroll position.
+        // Format.layoutDirection is set before any view exists.
+        v.layoutDirection = Format.layoutDirection
         return Holder(v)
     }
 
@@ -106,7 +105,7 @@ class ResultAdapter(
         // Reasserted on every bind, not just on creation. A holder created
         // before the language was applied is reused afterwards, and a stale
         // direction would otherwise survive in the recycled view.
-        holder.itemView.layoutDirection = ctx.resources.configuration.layoutDirection
+        holder.itemView.layoutDirection = Format.layoutDirection
         val score = r.score()
         val scoreTextColour = themeColour(
             ctx, com.google.android.material.R.attr.colorOnSurface,
