@@ -69,18 +69,16 @@ class ResultAdapter(
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
         val v = LayoutInflater.from(parent.context).inflate(R.layout.item_result, parent, false)
 
-        // Copy the list's own resolved direction onto the card.
+        // Take the direction from the Configuration, not from the parent.
         //
-        // Items are inflated with attachToRoot=false, so a card has no parent
-        // when it resolves its RTL properties. android:layoutDirection="locale"
-        // then resolves against Locale.getDefault() rather than the list, and
-        // this app rewrites that default when applying its language — so cards
-        // created before and after that call disagreed, and the direction
-        // appeared to alternate with scroll position rather than content.
-        //
-        // Taking the value from the attached parent removes the ambiguity: there
-        // is one resolved direction on screen and every card is given it.
-        v.layoutDirection = parent.layoutDirection
+        // parent.layoutDirection is a *resolved* value, and resolution has not
+        // necessarily happened when the first holders are created — an
+        // unresolved parent reports LTR, so the earliest cards were built
+        // left-to-right and later ones right-to-left, which is why the mismatch
+        // tracked scroll position. Configuration.getLayoutDirection() is a plain
+        // field on the context this view was inflated from: correct from the
+        // first call, no resolution or attachment required.
+        v.layoutDirection = parent.context.resources.configuration.layoutDirection
         return Holder(v)
     }
 
@@ -104,6 +102,11 @@ class ResultAdapter(
     override fun onBindViewHolder(holder: Holder, position: Int) {
         val r = items[position]
         val ctx = holder.itemView.context
+
+        // Reasserted on every bind, not just on creation. A holder created
+        // before the language was applied is reused afterwards, and a stale
+        // direction would otherwise survive in the recycled view.
+        holder.itemView.layoutDirection = ctx.resources.configuration.layoutDirection
         val score = r.score()
         val scoreTextColour = themeColour(
             ctx, com.google.android.material.R.attr.colorOnSurface,

@@ -298,14 +298,19 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
     }
 
     private fun showAbout() {
+        // No dialog title. It repeated the app name the user just tapped from,
+        // put a Latin product name in the middle of a Persian line, and ate the
+        // vertical room this dialog needs for actual text. The version goes at
+        // the end of the body instead, where it is a fact about the build rather
+        // than a heading.
+        // getText, not getString: the body carries <b> section headings, and
+        // getString would flatten them to plain text.
+        val body = android.text.SpannableStringBuilder(getText(R.string.about_body))
+            .append("\n\n")
+            .append(getString(R.string.about_version, Format.isolate(appVersionName())))
+
         MaterialAlertDialogBuilder(this)
-            // The version belongs in the title, where it is visible without
-            // scrolling a long dialog, and it is read from BuildConfig so it can
-            // never disagree with the APK the user actually installed.
-            .setTitle(
-                getString(R.string.about_title_versioned, Format.isolate(appVersionName())),
-            )
-            .setMessage(R.string.about_body)
+            .setMessage(body)
             .setPositiveButton(R.string.about_close, null)
             .show()
     }

@@ -58,13 +58,37 @@ class LayoutDirectionTest {
     }
 
     @Test
-    fun theAdapterStillForcesItemsToMatchTheList() {
-        // Inheritance covers views once attached, but items are inflated with
-        // attachToRoot=false and resolve before attachment. Copying the list's
-        // resolved value closes that window explicitly rather than by timing.
+    fun theAdapterTakesDirectionFromTheConfiguration() {
+        // Not from parent.layoutDirection: that is a *resolved* value, and
+        // resolution has not necessarily run when the first holders are created.
+        // An unresolved parent reports LTR, so the earliest cards came out
+        // left-to-right and later ones right-to-left — the mismatch tracked
+        // scroll position. Configuration.layoutDirection is a plain field on the
+        // context and is correct from the first call.
+        val adapter = source("ResultAdapter.kt")
+
         assertTrue(
-            "ResultAdapter must set the item's layoutDirection from its parent",
-            source("ResultAdapter.kt").contains("layoutDirection = parent.layoutDirection"),
+            "ResultAdapter must read the direction from the Configuration",
+            adapter.contains("configuration.layoutDirection"),
+        )
+        assertTrue(
+            "reading parent.layoutDirection is unreliable before resolution",
+            !adapter.contains("= parent.layoutDirection"),
+        )
+    }
+
+    @Test
+    fun directionIsReassertedOnEveryBind() {
+        // A holder created before the language was applied gets reused after it.
+        // Setting the direction only in onCreateViewHolder leaves that stale
+        // value in the recycled view.
+        val adapter = source("ResultAdapter.kt")
+        val occurrences = Regex("layoutDirection = ").findAll(adapter).count()
+
+        assertTrue(
+            "direction must be set on bind as well as on create (found " +
+                "$occurrences assignment(s))",
+            occurrences >= 2,
         )
     }
 
