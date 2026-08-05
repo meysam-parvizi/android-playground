@@ -67,12 +67,6 @@ data class ScanConfig(
      */
     val downloadBytes: Int = 0,
     /**
-     * Second-stage benchmark: how many top results to measure, how much to pull
-     * from each, how many at a time, and how many retries a failed measurement
-     * gets. [speedTopN] of 0 disables the stage.
-     */
-    val speedTopN: Int = 0,
-    /**
      * Whether the speed benchmark runs at all.
      *
      * Off by default: it downloads real payload per shortlisted IP, which costs
@@ -114,14 +108,10 @@ data class ScanConfig(
             count: Int,
             iranMode: Boolean,
             speedTestEnabled: Boolean = false,
-            speedTopN: Int = SpeedTopNOptions.VALUES[SpeedTopNOptions.DEFAULT_INDEX],
             speedTestBytes: Int = SpeedSizeOptions.VALUES[SpeedSizeOptions.DEFAULT_INDEX],
         ): ScanConfig = ScanConfig(
             targetCount = count,
             speedTestEnabled = speedTestEnabled,
-            // A shortlist of 0 disables the phase, so "off" needs no second
-            // branch anywhere downstream.
-            speedTopN = if (speedTestEnabled) speedTopN else 0,
             speedTestBytes = speedTestBytes,
             tries = if (iranMode) RESTRICTED_TRIES else STANDARD_TRIES,
             interAttemptDelayMinMs = if (iranMode) RESTRICTED_JITTER_MIN_MS else 0,
@@ -175,23 +165,6 @@ data class ScanProgress(
     val healthy: Int,
     val currentIp: String,
 )
-
-object SpeedTopNOptions {
-    /** Benchmark every healthy result. */
-    const val ALL = Int.MAX_VALUE
-
-    /** Ten: enough to pick a winner, short enough not to double the scan. */
-    const val DEFAULT_INDEX = 1
-
-    /**
-     * How many top results to benchmark.
-     *
-     * [ALL] sits last rather than in numeric order: it is the most expensive
-     * choice by far, and a list that ends "20, 50, All" reads as a scale of
-     * increasing cost, which is what the user is actually choosing.
-     */
-    val VALUES: List<Int> = listOf(5, 10, 20, 50, ALL)
-}
 
 object SpeedSizeOptions {
     /**
@@ -384,7 +357,8 @@ class ScanEngine(
         planned: Int,
         healthy: Int,
     ) {
-        val shortlist = SpeedPhase.shortlist(gathered, config.speedTopN)
+        if (!config.speedTestEnabled) return
+        val shortlist = SpeedPhase.shortlist(gathered)
         if (shortlist.isEmpty()) return
 
         // Tell the UI the scan moved to its second stage: probed == total from

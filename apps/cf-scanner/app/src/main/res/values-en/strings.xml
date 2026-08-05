@@ -108,11 +108,8 @@
     <string name="metric_absent">\u2014</string>
     <string name="label_speed_test">Speed test</string>
     <string name="hint_speed_test_warning">⚠️ Downloads real data through each tested IP and can use a lot of mobile data</string>
-    <string name="label_speed_count">Test speed on</string>
     <string name="label_speed_size">Download per IP</string>
-    <string name="speed_count_top">Top %1$s</string>
-    <string name="speed_count_all">All results</string>
     <string name="speed_size_kb">%1$s KB</string>
     <string name="speed_size_mb">%1$s MB</string>
-    <string name="hint_speed_test">Runs after the scan finishes. Only the IPs it measures show a speed, and only their scores change.</string>
+    <string name="hint_speed_test">Runs after the scan on every healthy result. A bigger download measures speed more accurately and counts for more in the score, but uses more data.</string>
 </resources>

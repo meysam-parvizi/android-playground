@@ -145,11 +145,8 @@
     <string name="metric_absent">\u2014</string>
     <string name="label_speed_test">تست سرعت</string>
     <string name="hint_speed_test_warning">⚠️ از طریق هر آی‌پی داده‌ی واقعی دانلود می‌کند و می‌تواند حجم زیادی از اینترنت شما را مصرف کند</string>
-    <string name="label_speed_count">تست سرعت روی</string>
     <string name="label_speed_size">حجم دانلود هر آی‌پی</string>
-    <string name="speed_count_top">%1$s نتیجه‌ی برتر</string>
-    <string name="speed_count_all">همه‌ی نتایج</string>
     <string name="speed_size_kb">%1$s کیلوبایت</string>
     <string name="speed_size_mb">%1$s مگابایت</string>
-    <string name="hint_speed_test">بعد از پایان اسکن اجرا می‌شود. فقط آی‌پی‌هایی که سنجیده می‌شوند سرعت نشان می‌دهند و فقط امتیاز همان‌ها تغییر می‌کند.</string>
+    <string name="hint_speed_test">بعد از پایان اسکن روی همه‌ی نتایج سالم اجرا می‌شود. حجم دانلود بیشتر، سرعت را دقیق‌تر می‌سنجد و در امتیاز وزن بیشتری می‌گیرد، اما دیتای بیشتری مصرف می‌کند.</string>
 </resources>

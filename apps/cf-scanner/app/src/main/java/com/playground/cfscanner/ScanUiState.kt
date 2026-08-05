@@ -106,8 +106,6 @@ data class HeaderState(
      * be a deliberate choice rather than a surprise on the data bill.
      */
     val speedTestEnabled: Boolean = false,
-    /** Index into [SpeedTopNOptions.VALUES]. */
-    val speedIndex: Int = SpeedTopNOptions.DEFAULT_INDEX,
     /** Index into [SpeedSizeOptions.VALUES]. */
     val speedSizeIndex: Int = SpeedSizeOptions.DEFAULT_INDEX,
     val iranMode: Boolean = true,

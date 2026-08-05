@@ -5,43 +5,47 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Benchmark stage configuration and its user-facing option lists. */
+/** Benchmark stage configuration and its download-size options. */
 class SpeedConfigTest {
 
-    private fun enabled(topN: Int = SpeedTopNOptions.VALUES[SpeedTopNOptions.DEFAULT_INDEX]) =
-        ScanConfig.forMode(count = 100, iranMode = true, speedTestEnabled = true, speedTopN = topN)
+    private fun enabled(
+        bytes: Int = SpeedSizeOptions.VALUES[SpeedSizeOptions.DEFAULT_INDEX],
+    ) = ScanConfig.forMode(
+        count = 100,
+        iranMode = true,
+        speedTestEnabled = true,
+        speedTestBytes = bytes,
+    )
 
     // --- off by default -----------------------------------------------------
 
     @Test
     fun theBenchmarkIsOffUnlessAskedFor() {
         // It spends real mobile data, so it cannot be a default.
-        val default = ScanConfig.forMode(count = 100, iranMode = true)
-        assertFalse(default.speedTestEnabled)
-        assertEquals("a shortlist of 0 disables the phase downstream", 0, default.speedTopN)
+        assertFalse(ScanConfig.forMode(count = 100, iranMode = true).speedTestEnabled)
     }
 
     @Test
-    fun turningItOffZeroesTheShortlistEvenIfATopNIsPassed() {
-        // The off switch must win: one place decides, so no downstream code has
-        // to check the flag as well.
-        val off = ScanConfig.forMode(
-            count = 100,
-            iranMode = true,
-            speedTestEnabled = false,
-            speedTopN = 50,
+    fun theSwitchIsTheOnlyThingThatTurnsItOn() {
+        // There is no shortlist size any more: all healthy results or none, so
+        // every score in a list is on the same scale.
+        assertTrue(enabled().speedTestEnabled)
+        assertFalse(
+            ScanConfig.forMode(count = 100, iranMode = true, speedTestEnabled = false)
+                .speedTestEnabled,
         )
-        assertEquals(0, off.speedTopN)
     }
 
     // --- when enabled -------------------------------------------------------
 
     @Test
-    fun enablingItUsesTenResultsAndHalfAMegabyteByDefault() {
-        val config = enabled()
-        assertTrue(config.speedTestEnabled)
-        assertEquals(10, config.speedTopN)
-        assertEquals(512 * 1024, config.speedTestBytes)
+    fun theDefaultDownloadIsHalfAMegabyte() {
+        assertEquals(512 * 1024, enabled().speedTestBytes)
+    }
+
+    @Test
+    fun theChosenSizeIsCarriedThrough() {
+        assertEquals(2048 * 1024, enabled(bytes = 2048 * 1024).speedTestBytes)
     }
 
     @Test
@@ -59,45 +63,33 @@ class SpeedConfigTest {
         assertEquals(1, enabled().speedRetries)
     }
 
-    // --- shortlist options --------------------------------------------------
-
-    @Test
-    fun allIsOfferedLastBecauseItIsTheMostExpensive() {
-        assertEquals(SpeedTopNOptions.ALL, SpeedTopNOptions.VALUES.last())
-    }
-
-    @Test
-    fun theShortlistOptionsAreAscendingAndDistinct() {
-        assertEquals(SpeedTopNOptions.VALUES.sorted(), SpeedTopNOptions.VALUES)
-        assertEquals(SpeedTopNOptions.VALUES.distinct(), SpeedTopNOptions.VALUES)
-    }
-
-    @Test
-    fun offIsTheSwitchNotAListEntry() {
-        // 0 used to sit in this list, which meant two ways to express "off".
-        assertFalse(SpeedTopNOptions.VALUES.contains(0))
-    }
-
-    @Test
-    fun theDefaultShortlistOptionIsTen() {
-        assertEquals(10, SpeedTopNOptions.VALUES[SpeedTopNOptions.DEFAULT_INDEX])
-    }
-
-    @Test
-    fun allMeansEveryHealthyResult() {
-        val results = List(200) { ScanResult(ip = "104.16.0.$it", port = 443) }
-        // ALL must not truncate; take(Int.MAX_VALUE) is safe.
-        assertEquals(0, SpeedPhase.shortlist(results, SpeedTopNOptions.ALL).size)
-    }
-
     // --- download size options ---------------------------------------------
 
     @Test
     fun everySizeOptionOutgrowsSlowStartEnoughToMeanSomething() {
         // Below ~128KB the transfer finishes inside the first congestion windows,
         // so the figure describes round-trip time rather than bandwidth. That is
-        // exactly what made an 8KB gate read as 0.5 Mb/s.
+        // what made an 8KB gate read as 0.5 Mb/s on a fast link.
         assertTrue(SpeedSizeOptions.VALUES.min() >= 128 * 1024)
+    }
+
+    @Test
+    fun theSmallestOptionMatchesTheConfidenceFloor() {
+        // The smallest offered size is the one the scorer trusts least; they must
+        // agree, or the UI offers a size whose reading is silently discarded
+        // without saying so.
+        assertEquals(
+            ScanResult.SPEED_CONFIDENCE_FLOOR_BYTES,
+            SpeedSizeOptions.VALUES.min().toLong(),
+        )
+    }
+
+    @Test
+    fun theLargestOptionIsTheFullyTrustedSize() {
+        assertEquals(
+            ScanResult.SPEED_CONFIDENCE_FULL_BYTES,
+            SpeedSizeOptions.VALUES.max().toLong(),
+        )
     }
 
     @Test
@@ -109,12 +101,5 @@ class SpeedConfigTest {
     @Test
     fun theDefaultSizeIsHalfAMegabyte() {
         assertEquals(512 * 1024, SpeedSizeOptions.VALUES[SpeedSizeOptions.DEFAULT_INDEX])
-    }
-
-    @Test
-    fun theLargestSizeStaysWithinReason() {
-        // 2MB per IP times a large shortlist is already a big bill; anything
-        // more should be a deliberate code change, not a dropdown entry.
-        assertTrue(SpeedSizeOptions.VALUES.max() <= 2 * 1024 * 1024)
     }
 }

@@ -87,10 +87,6 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
             sortLabels = SortBy.entries.map { getString(it.labelRes) },
             // Same reason: localised here so the labels follow the language, and
             // the digits follow the locale's numerals.
-            speedCountLabels = SpeedTopNOptions.VALUES.map { n ->
-                if (n == SpeedTopNOptions.ALL) getString(R.string.speed_count_all)
-                else getString(R.string.speed_count_top, Format.number(n))
-            },
             speedSizeLabels = SpeedSizeOptions.VALUES.map { bytes ->
                 // Whole megabytes read better than "1024 KB".
                 if (bytes % (1024 * 1024) == 0) {
@@ -233,8 +229,6 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
 
     override fun onSpeedTestToggled(enabled: Boolean) =
         viewModel.setSpeedTestEnabled(enabled)
-
-    override fun onSpeedCountSelected(index: Int) = viewModel.setSpeedIndex(index)
 
     override fun onSpeedSizeSelected(index: Int) = viewModel.setSpeedSizeIndex(index)
 

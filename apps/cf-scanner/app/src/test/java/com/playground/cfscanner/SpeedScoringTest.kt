@@ -74,7 +74,6 @@ class SpeedScoringTest {
     @Test
     fun withSpeedTestOffTheScoreIgnoresSpeedEntirely() {
         val config = ScanConfig.forMode(count = 100, iranMode = true, speedTestEnabled = false)
-        assertEquals(0, config.speedTopN)
         assertFalse(config.speedTestEnabled)
     }
 

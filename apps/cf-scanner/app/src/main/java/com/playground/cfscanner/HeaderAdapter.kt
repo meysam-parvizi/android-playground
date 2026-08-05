@@ -26,7 +26,6 @@ import com.google.android.material.textfield.MaterialAutoCompleteTextView
 class HeaderAdapter(
     private val countOptions: List<Int>,
     private val sortLabels: List<String>,
-    private val speedCountLabels: List<String>,
     private val speedSizeLabels: List<String>,
     private val callbacks: Callbacks,
 ) : RecyclerView.Adapter<HeaderAdapter.Holder>() {
@@ -38,7 +37,6 @@ class HeaderAdapter(
         fun onCountSelected(index: Int)
         fun onSortSelected(index: Int)
         fun onSpeedTestToggled(enabled: Boolean)
-        fun onSpeedCountSelected(index: Int)
         fun onSpeedSizeSelected(index: Int)
         fun onIranModeChanged(enabled: Boolean)
     }
@@ -80,8 +78,6 @@ class HeaderAdapter(
         val sortInput: MaterialAutoCompleteTextView = view.findViewById(R.id.sortInput)
         val speedTestSwitch: MaterialSwitch = view.findViewById(R.id.speedTestSwitch)
         val speedOptions: View = view.findViewById(R.id.speedOptions)
-        val speedCountInput: MaterialAutoCompleteTextView =
-            view.findViewById(R.id.speedCountInput)
         val speedSizeInput: MaterialAutoCompleteTextView =
             view.findViewById(R.id.speedSizeInput)
         val iranModeSwitch: MaterialSwitch = view.findViewById(R.id.iranModeSwitch)
@@ -136,13 +132,6 @@ class HeaderAdapter(
             if (!suppressSwitchCallback) callbacks.onSpeedTestToggled(checked)
         }
 
-        holder.speedCountInput.setAdapter(
-            ArrayAdapter(ctx, android.R.layout.simple_list_item_1, speedCountLabels),
-        )
-        holder.speedCountInput.setOnItemClickListener { _, _, index, _ ->
-            callbacks.onSpeedCountSelected(index)
-        }
-
         holder.speedSizeInput.setAdapter(
             ArrayAdapter(ctx, android.R.layout.simple_list_item_1, speedSizeLabels),
         )
@@ -173,8 +162,6 @@ class HeaderAdapter(
         val counts = countOptions.map { Format.number(it) }
         counts.getOrNull(s.countIndex)?.let { holder.countInput.setText(it, false) }
         sortLabels.getOrNull(s.sortIndex)?.let { holder.sortInput.setText(it, false) }
-        speedCountLabels.getOrNull(s.speedIndex)
-            ?.let { holder.speedCountInput.setText(it, false) }
         speedSizeLabels.getOrNull(s.speedSizeIndex)
             ?.let { holder.speedSizeInput.setText(it, false) }
 
@@ -256,7 +243,6 @@ class HeaderAdapter(
         val editable = !s.isScanning
         holder.countInput.isEnabled = editable
         holder.speedTestSwitch.isEnabled = editable
-        holder.speedCountInput.isEnabled = editable
         holder.speedSizeInput.isEnabled = editable
         holder.iranModeSwitch.isEnabled = editable
     }

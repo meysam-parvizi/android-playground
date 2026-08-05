@@ -1,5 +1,6 @@
 package com.playground.cfscanner
 
+import kotlin.math.ln
 import kotlin.math.sqrt
 
 /**
@@ -291,10 +292,20 @@ data class ScanResult(
         // rather than slow, so the multiplier is neutral.
         if (!benchmarked || throughputBps <= 0) return 1.0
         if (throughputBps >= FAST_ENOUGH_BPS) return 1.0
+
         val fraction = throughputBps.toDouble() / FAST_ENOUGH_BPS
-        return (MIN_SPEED_FACTOR + (1.0 - MIN_SPEED_FACTOR) * fraction).coerceIn(
+        val raw = (MIN_SPEED_FACTOR + (1.0 - MIN_SPEED_FACTOR) * fraction).coerceIn(
             MIN_SPEED_FACTOR, 1.0,
         )
+
+        // Weight the penalty by how much the reading can be trusted. A short
+        // transfer never escapes TCP slow start, so it under-reports the link —
+        // on one fixed 50 Mb/s connection 128KB measures ~9 Mb/s while 2MB
+        // measures ~32 Mb/s. Applying the same penalty to both would make the
+        // score depend on the download-size setting rather than on the IP, and
+        // results taken at different sizes could not be compared.
+        val confidence = speedConfidence(downloadedBytes)
+        return raw + (1.0 - raw) * (1.0 - confidence)
     }
 
     /**
@@ -321,6 +332,28 @@ data class ScanResult(
 
         /** Floor for the speed penalty, so a slow IP is demoted but not erased. */
         const val MIN_SPEED_FACTOR = 0.55
+
+        /**
+         * Smallest transfer whose rate means anything, and the size at which it
+         * is trusted completely.
+         */
+        const val SPEED_CONFIDENCE_FLOOR_BYTES = 128 * 1024L
+        const val SPEED_CONFIDENCE_FULL_BYTES = 2048 * 1024L
+
+        /**
+         * How much a speed reading taken over [bytes] should be trusted, 0..1.
+         *
+         * TCP opens with a small congestion window and doubles it every round trip,
+         * so the shorter the transfer the more it under-reports the link. The
+         * scale is logarithmic because that bias itself decays by halving: each
+         * doubling of the payload buys the same increment of confidence.
+         */
+        fun speedConfidence(bytes: Long): Double {
+            if (bytes < SPEED_CONFIDENCE_FLOOR_BYTES) return 0.0
+            if (bytes >= SPEED_CONFIDENCE_FULL_BYTES) return 1.0
+            val span = ln(SPEED_CONFIDENCE_FULL_BYTES.toDouble() / SPEED_CONFIDENCE_FLOOR_BYTES)
+            return ln(bytes.toDouble() / SPEED_CONFIDENCE_FLOOR_BYTES) / span
+        }
 
         /**
          * Cloudflare datacenters ranked by how well they usually serve Iran.

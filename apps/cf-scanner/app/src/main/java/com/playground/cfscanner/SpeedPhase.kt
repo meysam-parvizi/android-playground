@@ -15,16 +15,15 @@ package com.playground.cfscanner
 object SpeedPhase {
 
     /**
-     * The best [limit] healthy results, ordered as they will be benchmarked.
+     * Every healthy result, ordered as they will be benchmarked.
      *
-     * Ordered by discovery score so the benchmark budget is spent on the
-     * candidates most likely to be worth keeping.
+     * All of them or none: a partial shortlist produced two scoring scales in
+     * one list, where a measured IP could be demoted while an unmeasured one
+     * kept a neutral score. Ranking across those is meaningless, and the user
+     * cannot tell which rows were measured. Ordering is still by discovery score
+     * so the most promising addresses are measured first.
      */
-    fun shortlist(results: List<ScanResult>, limit: Int): List<ScanResult> {
-        if (limit <= 0) return emptyList()
-        return results
-            .filter { it.isHealthy() }
-            .sortedByDescending { it.score() }
-            .take(limit)
-    }
+    fun shortlist(results: List<ScanResult>): List<ScanResult> = results
+        .filter { it.isHealthy() }
+        .sortedByDescending { it.score() }
 }

@@ -51,17 +51,18 @@ class SpeedPhaseTest {
     // --- shortlist ----------------------------------------------------------
 
     @Test
-    fun shortlistTakesTheBestNHealthyResults()
-    {
+    fun theShortlistIsOrderedByDiscoveryScore() {
+        // Every healthy result is benchmarked, but the most promising first, so
+        // a cancelled scan has measured the addresses that mattered most.
         val results = listOf(
             healthy("1.1.1.1", 200_000),
             healthy("1.1.1.2", 20_000),
             healthy("1.1.1.3", 90_000),
         )
 
-        val shortlist = SpeedPhase.shortlist(results, limit = 2)
+        val shortlist = SpeedPhase.shortlist(results)
 
-        assertEquals(listOf("1.1.1.2", "1.1.1.3"), shortlist.map { it.ip })
+        assertEquals(listOf("1.1.1.2", "1.1.1.3", "1.1.1.1"), shortlist.map { it.ip })
     }
 
     @Test
@@ -69,15 +70,14 @@ class SpeedPhaseTest {
         val broken = ScanResult(ip = "9.9.9.9", port = 443)
         assertFalse(broken.isHealthy())
 
-        val shortlist = SpeedPhase.shortlist(listOf(broken, healthy("1.1.1.1", 30_000)), limit = 5)
+        val shortlist = SpeedPhase.shortlist(listOf(broken, healthy("1.1.1.1", 30_000)))
 
         assertEquals(listOf("1.1.1.1"), shortlist.map { it.ip })
     }
 
     @Test
-    fun shortlistOfZeroOrEmptyInputDoesNoWork() {
-        assertTrue(SpeedPhase.shortlist(listOf(healthy("1.1.1.1", 30_000)), limit = 0).isEmpty())
-        assertTrue(SpeedPhase.shortlist(emptyList(), limit = 10).isEmpty())
+    fun anEmptyInputDoesNoWork() {
+        assertTrue(SpeedPhase.shortlist(emptyList()).isEmpty())
     }
 
     // --- speed-aware reranking ---------------------------------------------
