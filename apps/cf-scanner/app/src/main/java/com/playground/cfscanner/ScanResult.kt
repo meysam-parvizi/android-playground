@@ -23,10 +23,26 @@ data class ScanResult(
     var httpStatus: Int = 0,
     /** Cloudflare datacenter code, e.g. FRA, AMS, IST. */
     var colo: String = "",
-    /** Download throughput in bytes/sec; 0 when not measured. */
+    /**
+     * Throughput in bytes/sec from the health gate or the benchmark.
+     *
+     * Only meaningful for scoring or display when [benchmarked] is true. The
+     * health gate moves 8KB, which fits inside TCP's first congestion window —
+     * that transfer ends before the connection has any idea how fast the link
+     * is, so its figure describes one round trip, not bandwidth.
+     */
     var throughputBps: Long = 0,
-    /** Number of payload bytes actually received during the data-path gate. */
+    /** Number of payload bytes actually received. */
     var downloadedBytes: Long = 0,
+    /**
+     * Whether a full speed benchmark ran on this IP.
+     *
+     * Distinct from [dataPathVerified]: the gate asks "does this carry data at
+     * all", the benchmark asks "how fast". Conflating them is what let a
+     * meaningless 8KB figure downgrade an IP to "weak" mid-scan and then
+     * promote it to "good" once the real measurement arrived.
+     */
+    var benchmarked: Boolean = false,
     /**
      * Whether a payload download was attempted at all.
      *
@@ -34,7 +50,7 @@ data class ScanResult(
      * completes every handshake but stalls the moment real bytes flow is useless,
      * and only a failed transfer reveals it.
      */
-    var downloadTested: Boolean = false,
+    var dataPathVerified: Boolean = false,
     /**
      * Cloudflare's own view of the connection, from `Server-Timing`.
      *
@@ -79,6 +95,23 @@ data class ScanResult(
      * so the figure reflects network round-trip rather than round-trip plus
      * however long the edge spent thinking.
      */
+    /**
+     * True when a benchmark produced a usable throughput figure.
+     *
+     * The UI shows a dash otherwise: an unmeasured IP has an unknown speed, and
+     * printing the health gate's 8KB figure as though it were bandwidth is what
+     * made the grades contradict themselves.
+     */
+    val hasMeasuredSpeed: Boolean
+        get() = benchmarked && throughputBps > 0
+
+    /** Records the outcome of a speed benchmark, successful or not. */
+    fun recordBenchmark(bytes: Long, bps: Long) {
+        benchmarked = true
+        downloadedBytes = bytes
+        throughputBps = bps
+    }
+
     fun avgMs(): Long {
         if (attemptResults.isNotEmpty()) {
             // Cloudflare's TCP stack reports a smoothed RTT for the exact
@@ -177,7 +210,10 @@ data class ScanResult(
         // If a payload transfer was attempted, it had to actually move bytes.
         // Some IPs complete every handshake and answer /cdn-cgi/trace, then stall
         // the moment real data flows — a handshake-only probe cannot see that.
-        if (downloadTested &&
+        // The health gate: if a transfer was attempted, it had to move real
+        // bytes. A benchmark failure is deliberately NOT a health failure — the
+        // benchmark measures speed on an IP that already passed every test.
+        if (dataPathVerified && !benchmarked &&
             (throughputBps <= 0 || downloadedBytes < MIN_DATA_GATE_BYTES)
         ) return false
         return true
@@ -251,7 +287,9 @@ data class ScanResult(
      * for the phone using it.
      */
     private fun speedFactor(): Double {
-        if (!downloadTested || throughputBps <= 0) return 1.0
+        // Only a real benchmark moves the score. Before that, speed is unknown
+        // rather than slow, so the multiplier is neutral.
+        if (!benchmarked || throughputBps <= 0) return 1.0
         if (throughputBps >= FAST_ENOUGH_BPS) return 1.0
         val fraction = throughputBps.toDouble() / FAST_ENOUGH_BPS
         return (MIN_SPEED_FACTOR + (1.0 - MIN_SPEED_FACTOR) * fraction).coerceIn(

@@ -134,7 +134,9 @@ class ResultAdapter(
         val pingValue = ctx.getString(R.string.chip_ping, Format.millis(r.avgMs()))
         val jitterValue = ctx.getString(R.string.chip_jitter, Format.millis(r.jitterMs()))
         val lossValue = ctx.getString(R.string.chip_loss, Format.percent(r.loss().toInt()))
-        val hasSpeed = r.throughputBps > 0
+        // A dash unless a benchmark actually ran. The health gate's 8KB figure
+        // is not a speed and must not be displayed as one.
+        val hasSpeed = r.hasMeasuredSpeed
         val speedValue = if (hasSpeed) {
             ctx.getString(R.string.chip_speed, Format.speed(r.throughputBps))
         } else {
@@ -192,7 +194,7 @@ class ResultAdapter(
             ctx, R.string.metric_label_loss,
             ctx.getString(R.string.chip_loss, Format.percent(r.loss().toInt())),
         ))
-        if (r.throughputBps > 0) {
+        if (r.hasMeasuredSpeed) {
             append(", ")
             append(spokenMetric(
                 ctx, R.string.metric_label_speed,

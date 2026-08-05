@@ -100,12 +100,16 @@ data class HeaderState(
     val countIndex: Int = 0,
     val sortIndex: Int = 0,
     /**
-     * Index into the speed-test shortlist options.
+     * Whether the speed benchmark runs after the scan.
      *
-     * Defaults to Top 10: enough to pick a winner on measured throughput without
-     * turning a finished scan into a second long wait.
+     * Off by default: it downloads real payload per shortlisted IP, so it must
+     * be a deliberate choice rather than a surprise on the data bill.
      */
+    val speedTestEnabled: Boolean = false,
+    /** Index into [SpeedTopNOptions.VALUES]. */
     val speedIndex: Int = SpeedTopNOptions.DEFAULT_INDEX,
+    /** Index into [SpeedSizeOptions.VALUES]. */
+    val speedSizeIndex: Int = SpeedSizeOptions.DEFAULT_INDEX,
     val iranMode: Boolean = true,
     /**
      * How many addresses the user asked for, as opposed to how many ended up

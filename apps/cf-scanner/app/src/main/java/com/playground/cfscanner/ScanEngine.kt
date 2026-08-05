@@ -72,6 +72,13 @@ data class ScanConfig(
      * gets. [speedTopN] of 0 disables the stage.
      */
     val speedTopN: Int = 0,
+    /**
+     * Whether the speed benchmark runs at all.
+     *
+     * Off by default: it downloads real payload per shortlisted IP, which costs
+     * mobile data the user did not ask to spend.
+     */
+    val speedTestEnabled: Boolean = false,
     val speedTestBytes: Int = 512 * 1024,
     val speedConcurrency: Int = 2,
     val speedRetries: Int = 1,
@@ -106,10 +113,16 @@ data class ScanConfig(
         fun forMode(
             count: Int,
             iranMode: Boolean,
+            speedTestEnabled: Boolean = false,
             speedTopN: Int = SpeedTopNOptions.VALUES[SpeedTopNOptions.DEFAULT_INDEX],
+            speedTestBytes: Int = SpeedSizeOptions.VALUES[SpeedSizeOptions.DEFAULT_INDEX],
         ): ScanConfig = ScanConfig(
             targetCount = count,
-            speedTopN = speedTopN,
+            speedTestEnabled = speedTestEnabled,
+            // A shortlist of 0 disables the phase, so "off" needs no second
+            // branch anywhere downstream.
+            speedTopN = if (speedTestEnabled) speedTopN else 0,
+            speedTestBytes = speedTestBytes,
             tries = if (iranMode) RESTRICTED_TRIES else STANDARD_TRIES,
             interAttemptDelayMinMs = if (iranMode) RESTRICTED_JITTER_MIN_MS else 0,
             interAttemptDelayMaxMs = if (iranMode) RESTRICTED_JITTER_MAX_MS else 0,
@@ -164,10 +177,34 @@ data class ScanProgress(
 )
 
 object SpeedTopNOptions {
-    /** Shortlist sizes offered in settings; 0 turns the benchmark off. */
-    val VALUES: List<Int> = listOf(0, 5, 10, 20, 50)
+    /** Benchmark every healthy result. */
+    const val ALL = Int.MAX_VALUE
 
     /** Ten: enough to pick a winner, short enough not to double the scan. */
+    const val DEFAULT_INDEX = 1
+
+    /**
+     * How many top results to benchmark.
+     *
+     * [ALL] sits last rather than in numeric order: it is the most expensive
+     * choice by far, and a list that ends "20, 50, All" reads as a scale of
+     * increasing cost, which is what the user is actually choosing.
+     */
+    val VALUES: List<Int> = listOf(5, 10, 20, 50, ALL)
+}
+
+object SpeedSizeOptions {
+    /**
+     * Payload pulled per benchmarked IP.
+     *
+     * 128KB is the smallest that outgrows TCP slow start enough to mean
+     * anything; below that the figure is dominated by round-trip time rather
+     * than bandwidth. Larger values are steadier but cost proportionally more
+     * data.
+     */
+    val VALUES: List<Int> = listOf(128 * 1024, 256 * 1024, 512 * 1024, 1024 * 1024, 2048 * 1024)
+
+    /** 512KB: a stable reading without a surprising data bill. */
     const val DEFAULT_INDEX = 2
 }
 
@@ -364,7 +401,7 @@ class ScanEngine(
                         // usually transient, but retrying forever would turn a
                         // bounded stage into an unbounded one.
                         repeat(config.speedRetries + 1) { attempt ->
-                            if (attempt > 0 && result.throughputBps > 0) return@repeat
+                            if (attempt > 0 && result.hasMeasuredSpeed) return@repeat
                             prober.measureSpeed(result, config.speedTestBytes)
                         }
                         deliver {

@@ -211,7 +211,7 @@ class EdgeTimingMetricsTest {
     @Test
     fun anIpThatStallsOnRealDataIsUnhealthy() {
         val stalled = result(listOf(30, 31, 30)).apply {
-            downloadTested = true
+            dataPathVerified = true
             throughputBps = 0
         }
         assertFalse(
@@ -220,7 +220,7 @@ class EdgeTimingMetricsTest {
         )
 
         val transferred = result(listOf(30, 31, 30)).apply {
-            downloadTested = true
+            dataPathVerified = true
             downloadedBytes = 8 * 1024
             throughputBps = 500_000
         }
@@ -230,7 +230,7 @@ class EdgeTimingMetricsTest {
     @Test
     fun tinyPartialDownloadDoesNotPassTheDataGate() {
         val partial = result(listOf(30, 31, 30)).apply {
-            downloadTested = true
+            dataPathVerified = true
             downloadedBytes = 8 * 1024 - 1L
             throughputBps = 500_000
         }
@@ -240,7 +240,7 @@ class EdgeTimingMetricsTest {
     @Test
     fun eightKilobytesPassesTheDataGate() {
         val complete = result(listOf(30, 31, 30)).apply {
-            downloadTested = true
+            dataPathVerified = true
             downloadedBytes = 8 * 1024L
             throughputBps = 500_000
         }
@@ -249,9 +249,9 @@ class EdgeTimingMetricsTest {
 
     @Test
     fun notRunningTheTransferTestDoesNotPenaliseAnIp() {
-        // downloadTested = false means "never tried", not "failed".
+        // dataPathVerified = false means "never tried", not "failed".
         val untested = result(listOf(30, 31, 30))
-        assertFalse(untested.downloadTested)
+        assertFalse(untested.dataPathVerified)
         assertTrue(untested.isHealthy())
     }
 

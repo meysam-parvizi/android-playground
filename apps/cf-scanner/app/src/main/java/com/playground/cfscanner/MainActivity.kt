@@ -87,9 +87,17 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
             sortLabels = SortBy.entries.map { getString(it.labelRes) },
             // Same reason: localised here so the labels follow the language, and
             // the digits follow the locale's numerals.
-            speedLabels = SpeedTopNOptions.VALUES.map { n ->
-                if (n == 0) getString(R.string.speed_test_off)
-                else getString(R.string.speed_test_top, Format.number(n))
+            speedCountLabels = SpeedTopNOptions.VALUES.map { n ->
+                if (n == SpeedTopNOptions.ALL) getString(R.string.speed_count_all)
+                else getString(R.string.speed_count_top, Format.number(n))
+            },
+            speedSizeLabels = SpeedSizeOptions.VALUES.map { bytes ->
+                // Whole megabytes read better than "1024 KB".
+                if (bytes % (1024 * 1024) == 0) {
+                    getString(R.string.speed_size_mb, Format.number(bytes / (1024 * 1024)))
+                } else {
+                    getString(R.string.speed_size_kb, Format.number(bytes / 1024))
+                }
             },
             callbacks = this,
         )
@@ -223,7 +231,12 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
 
     override fun onSortSelected(index: Int) = viewModel.setSort(index)
 
-    override fun onSpeedSelected(index: Int) = viewModel.setSpeedIndex(index)
+    override fun onSpeedTestToggled(enabled: Boolean) =
+        viewModel.setSpeedTestEnabled(enabled)
+
+    override fun onSpeedCountSelected(index: Int) = viewModel.setSpeedIndex(index)
+
+    override fun onSpeedSizeSelected(index: Int) = viewModel.setSpeedSizeIndex(index)
 
     override fun onIranModeChanged(enabled: Boolean) = viewModel.setIranMode(enabled)
 

@@ -86,7 +86,11 @@ class ScanViewModel : ViewModel() {
 
     fun setIranMode(enabled: Boolean) = update { it.copy(iranMode = enabled) }
 
+    fun setSpeedTestEnabled(enabled: Boolean) = update { it.copy(speedTestEnabled = enabled) }
+
     fun setSpeedIndex(index: Int) = update { it.copy(speedIndex = index) }
+
+    fun setSpeedSizeIndex(index: Int) = update { it.copy(speedSizeIndex = index) }
 
     fun setSort(index: Int) {
         update { it.copy(sortIndex = index) }
@@ -128,8 +132,12 @@ class ScanViewModel : ViewModel() {
         val config = ScanConfig.forMode(
             count,
             iranMode = _state.value.iranMode,
+            speedTestEnabled = _state.value.speedTestEnabled,
             speedTopN = SpeedTopNOptions.VALUES.getOrElse(_state.value.speedIndex) {
                 SpeedTopNOptions.VALUES[SpeedTopNOptions.DEFAULT_INDEX]
+            },
+            speedTestBytes = SpeedSizeOptions.VALUES.getOrElse(_state.value.speedSizeIndex) {
+                SpeedSizeOptions.VALUES[SpeedSizeOptions.DEFAULT_INDEX]
             },
         )
 

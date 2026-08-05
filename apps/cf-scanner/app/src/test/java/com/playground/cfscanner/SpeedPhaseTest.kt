@@ -85,14 +85,10 @@ class SpeedPhaseTest {
     @Test
     fun measuredSpeedOutranksAMarginallyBetterPing() {
         val fastPingSlowData = healthy("1.1.1.1", 30_000).apply {
-            downloadTested = true
-            downloadedBytes = 512 * 1024
-            throughputBps = 40_000 // ~0.3 Mbps
+            recordBenchmark(bytes = 512 * 1024, bps = 40_000) // ~0.3 Mbps
         }
         val slightlySlowerPingFastData = healthy("1.1.1.2", 45_000).apply {
-            downloadTested = true
-            downloadedBytes = 512 * 1024
-            throughputBps = 4_000_000 // ~32 Mbps
+            recordBenchmark(bytes = 512 * 1024, bps = 4_000_000) // ~32 Mbps
         }
 
         assertTrue(
@@ -107,9 +103,7 @@ class SpeedPhaseTest {
         // shortlist must not sink below a benchmarked one purely for that.
         val unmeasured = healthy("1.1.1.1", 30_000)
         val measured = healthy("1.1.1.2", 30_000).apply {
-            downloadTested = true
-            downloadedBytes = 512 * 1024
-            throughputBps = 4_000_000
+            recordBenchmark(bytes = 512 * 1024, bps = 4_000_000)
         }
 
         assertEquals(unmeasured.score(), measured.score())

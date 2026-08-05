@@ -42,7 +42,7 @@ class AttemptResultTest {
             // Candidate-level gates are deliberately green: only attempt
             // accounting should reject this result.
             wsOk = true
-            downloadTested = true
+            dataPathVerified = true
             downloadedBytes = 16 * 1024
             throughputBps = 1_000_000
         }
@@ -59,7 +59,7 @@ class AttemptResultTest {
             attemptResults += attempt(tcpMs = 44)
             attemptResults += attempt(stabilityOk = false)
             wsOk = true
-            downloadTested = true
+            dataPathVerified = true
             downloadedBytes = 16 * 1024
             throughputBps = 1_000_000
         }

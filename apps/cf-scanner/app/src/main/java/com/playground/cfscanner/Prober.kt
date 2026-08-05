@@ -194,7 +194,7 @@ open class Prober(
                     if (testWebSocket && !result.wsOk) {
                         probeWebSocket(ip, port, selected.sni, result)
                     }
-                    if (downloadBytes > 0 && !result.downloadTested) {
+                    if (downloadBytes > 0 && !result.dataPathVerified) {
                         probeDownload(ip, port, selected.sni, result)
                     }
                 }
@@ -220,7 +220,13 @@ open class Prober(
         if (bytes <= 0) return
         val sni = result.attemptResults.lastOrNull { it.coreSuccess }?.sni
             ?: SniStrategy.order(result.ip, 0).first()
-        probeDownload(result.ip, result.port, sni, result, bytes)
+
+        // Measured into a scratch result, then committed as a benchmark. Writing
+        // straight into `result` would let a failed 512KB transfer overwrite the
+        // health-gate figures of an IP that already passed every test.
+        val scratch = ScanResult(ip = result.ip, port = result.port)
+        probeDownload(result.ip, result.port, sni, scratch, bytes)
+        result.recordBenchmark(bytes = scratch.downloadedBytes, bps = scratch.throughputBps)
     }
 
     private fun nextInterAttemptDelayMs(): Int {
@@ -461,7 +467,7 @@ open class Prober(
      * and still stall the instant a real transfer starts. Moving actual bytes is
      * the only way to see it.
      *
-     * Sets [ScanResult.downloadTested] so a failure is distinguishable from
+     * Sets [ScanResult.dataPathVerified] so a failure is distinguishable from
      * never having tried, and records throughput on success.
      */
     private suspend fun probeDownload(
@@ -471,7 +477,7 @@ open class Prober(
         result: ScanResult,
         bytes: Int = downloadBytes,
     ) = withContext(Dispatchers.IO) {
-            result.downloadTested = true
+            result.dataPathVerified = true
             var socket: Socket? = null
             var tls: SSLSocket? = null
             try {
@@ -528,7 +534,7 @@ open class Prober(
             } catch (ce: CancellationException) {
                 throw ce
             } catch (_: Exception) {
-                // Leave throughput at 0; downloadTested marks this as a failure.
+                // Leave throughput at 0; dataPathVerified marks this as a failure.
             } finally {
                 tls?.closeQuietly()
                 socket?.closeQuietly()

@@ -26,7 +26,8 @@ import com.google.android.material.textfield.MaterialAutoCompleteTextView
 class HeaderAdapter(
     private val countOptions: List<Int>,
     private val sortLabels: List<String>,
-    private val speedLabels: List<String>,
+    private val speedCountLabels: List<String>,
+    private val speedSizeLabels: List<String>,
     private val callbacks: Callbacks,
 ) : RecyclerView.Adapter<HeaderAdapter.Holder>() {
 
@@ -36,7 +37,9 @@ class HeaderAdapter(
         fun onCopy()
         fun onCountSelected(index: Int)
         fun onSortSelected(index: Int)
-        fun onSpeedSelected(index: Int)
+        fun onSpeedTestToggled(enabled: Boolean)
+        fun onSpeedCountSelected(index: Int)
+        fun onSpeedSizeSelected(index: Int)
         fun onIranModeChanged(enabled: Boolean)
     }
 
@@ -75,7 +78,12 @@ class HeaderAdapter(
         val copyButton: MaterialButton = view.findViewById(R.id.copyButton)
         val countInput: MaterialAutoCompleteTextView = view.findViewById(R.id.countInput)
         val sortInput: MaterialAutoCompleteTextView = view.findViewById(R.id.sortInput)
-        val speedInput: MaterialAutoCompleteTextView = view.findViewById(R.id.speedInput)
+        val speedTestSwitch: MaterialSwitch = view.findViewById(R.id.speedTestSwitch)
+        val speedOptions: View = view.findViewById(R.id.speedOptions)
+        val speedCountInput: MaterialAutoCompleteTextView =
+            view.findViewById(R.id.speedCountInput)
+        val speedSizeInput: MaterialAutoCompleteTextView =
+            view.findViewById(R.id.speedSizeInput)
         val iranModeSwitch: MaterialSwitch = view.findViewById(R.id.iranModeSwitch)
         val resultsHeader: TextView = view.findViewById(R.id.resultsHeader)
         var dropdownsReady = false
@@ -124,11 +132,22 @@ class HeaderAdapter(
             callbacks.onSortSelected(index)
         }
 
-        holder.speedInput.setAdapter(
-            ArrayAdapter(ctx, android.R.layout.simple_list_item_1, speedLabels),
+        holder.speedTestSwitch.setOnCheckedChangeListener { _, checked ->
+            if (!suppressSwitchCallback) callbacks.onSpeedTestToggled(checked)
+        }
+
+        holder.speedCountInput.setAdapter(
+            ArrayAdapter(ctx, android.R.layout.simple_list_item_1, speedCountLabels),
         )
-        holder.speedInput.setOnItemClickListener { _, _, index, _ ->
-            callbacks.onSpeedSelected(index)
+        holder.speedCountInput.setOnItemClickListener { _, _, index, _ ->
+            callbacks.onSpeedCountSelected(index)
+        }
+
+        holder.speedSizeInput.setAdapter(
+            ArrayAdapter(ctx, android.R.layout.simple_list_item_1, speedSizeLabels),
+        )
+        holder.speedSizeInput.setOnItemClickListener { _, _, index, _ ->
+            callbacks.onSpeedSizeSelected(index)
         }
 
         holder.scanButton.setOnClickListener { callbacks.onScanToggle() }
@@ -154,7 +173,19 @@ class HeaderAdapter(
         val counts = countOptions.map { Format.number(it) }
         counts.getOrNull(s.countIndex)?.let { holder.countInput.setText(it, false) }
         sortLabels.getOrNull(s.sortIndex)?.let { holder.sortInput.setText(it, false) }
-        speedLabels.getOrNull(s.speedIndex)?.let { holder.speedInput.setText(it, false) }
+        speedCountLabels.getOrNull(s.speedIndex)
+            ?.let { holder.speedCountInput.setText(it, false) }
+        speedSizeLabels.getOrNull(s.speedSizeIndex)
+            ?.let { holder.speedSizeInput.setText(it, false) }
+
+        // The two dropdowns only exist to configure the benchmark, so they are
+        // hidden while it is off rather than shown with no effect.
+        holder.speedOptions.visibility = if (s.speedTestEnabled) View.VISIBLE else View.GONE
+        if (holder.speedTestSwitch.isChecked != s.speedTestEnabled) {
+            suppressSwitchCallback = true
+            holder.speedTestSwitch.isChecked = s.speedTestEnabled
+            suppressSwitchCallback = false
+        }
 
         if (holder.iranModeSwitch.isChecked != s.iranMode) {
             // Suppressed so this programmatic write is not mistaken for the user
@@ -224,7 +255,9 @@ class HeaderAdapter(
         // Settings that would invalidate a running scan are locked while it runs.
         val editable = !s.isScanning
         holder.countInput.isEnabled = editable
-        holder.speedInput.isEnabled = editable
+        holder.speedTestSwitch.isEnabled = editable
+        holder.speedCountInput.isEnabled = editable
+        holder.speedSizeInput.isEnabled = editable
         holder.iranModeSwitch.isEnabled = editable
     }
 

@@ -179,31 +179,102 @@
                         tools:ignore="LabelFor,SpeakableTextPresentCheck" />
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/speedField"
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                <!--
+                  Speed test: one switch, then the options it governs.
+
+                  Off by default because it downloads real payload per
+                  shortlisted IP. The two dropdowns are hidden while it is off,
+                  so the settings card does not present choices that have no
+                  effect.
+                -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/space_m"
-                    android:hint="@string/label_speed_test">
+                    android:layout_marginTop="@dimen/space_l"
+                    android:baselineAligned="false"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
-                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                        android:id="@+id/speedInput"
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/label_speed_test"
+                            android:textAppearance="@style/TextAppearance.CfScanner.TitleSmall"
+                            android:textColor="?attr/colorOnSurface" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_xs"
+                            android:text="@string/hint_speed_test_warning"
+                            android:textAppearance="@style/TextAppearance.CfScanner.BodySmall"
+                            android:textColor="?attr/colorOnSurfaceVariant" />
+                    </LinearLayout>
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/speedTestSwitch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="@dimen/space_m"
+                        android:contentDescription="@string/label_speed_test" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/speedOptions"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/speedCountField"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:focusable="false"
-                        android:inputType="none"
-                        tools:ignore="LabelFor,SpeakableTextPresentCheck" />
-                </com.google.android.material.textfield.TextInputLayout>
+                        android:layout_marginTop="@dimen/space_m"
+                        android:hint="@string/label_speed_count">
 
-                <TextView
-                    android:id="@+id/speedHint"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/space_s"
-                    android:text="@string/hint_speed_test"
-                    android:textAppearance="@style/TextAppearance.CfScanner.BodySmall"
-                    android:textColor="?attr/colorOnSurfaceVariant" />
+                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                            android:id="@+id/speedCountInput"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:focusable="false"
+                            android:inputType="none"
+                            tools:ignore="LabelFor,SpeakableTextPresentCheck" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/speedSizeField"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/space_m"
+                        android:hint="@string/label_speed_size">
+
+                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                            android:id="@+id/speedSizeInput"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:focusable="false"
+                            android:inputType="none"
+                            tools:ignore="LabelFor,SpeakableTextPresentCheck" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <TextView
+                        android:id="@+id/speedHint"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/space_s"
+                        android:text="@string/hint_speed_test"
+                        android:textAppearance="@style/TextAppearance.CfScanner.BodySmall"
+                        android:textColor="?attr/colorOnSurfaceVariant" />
+                </LinearLayout>
             </LinearLayout>
 
             <LinearLayout
