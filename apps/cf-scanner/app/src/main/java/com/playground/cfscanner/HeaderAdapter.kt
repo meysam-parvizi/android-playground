@@ -186,7 +186,7 @@ class HeaderAdapter(
             suppressSwitchCallback = false
         }
 
-        holder.statusText.setText(statusTextRes(s.phase))
+        holder.statusText.setText(statusTextResFor(s.phase))
 
         // Sub-status shows scan counts, and only once there is something to count.
         if (s.total > 0) {
@@ -252,15 +252,24 @@ class HeaderAdapter(
         holder.iranModeSwitch.isEnabled = editable
     }
 
-    private fun statusTextRes(phase: ScanPhase): Int = when (phase) {
-        ScanPhase.IDLE -> R.string.status_idle
-        ScanPhase.SCANNING -> R.string.status_scanning
-        ScanPhase.FINISHED -> R.string.status_done
-        ScanPhase.STOPPED -> R.string.status_stopped
-        ScanPhase.ERROR -> R.string.status_error
-    }
 
-    private companion object {
-        const val VIEW_TYPE = 1_000
+    companion object {
+        private const val VIEW_TYPE = 1_000
+
+        /**
+         * Status line for a phase.
+         *
+         * In the companion so the mapping can be checked for completeness by a
+         * test — a phase added without a label renders as a blank status line,
+         * which is invisible until someone hits that state.
+         */
+        fun statusTextResFor(phase: ScanPhase): Int = when (phase) {
+            ScanPhase.IDLE -> R.string.status_idle
+            ScanPhase.SCANNING -> R.string.status_scanning
+            ScanPhase.FINISHED -> R.string.status_done
+            ScanPhase.STOPPED -> R.string.status_stopped
+            ScanPhase.INTERRUPTED -> R.string.status_interrupted
+            ScanPhase.ERROR -> R.string.status_error
+        }
     }
 }

@@ -75,9 +75,22 @@ class ScanViewModel : ViewModel() {
     /** True when the finished scan ran partly in the background. */
     val measurementInterrupted: Boolean get() = interrupted
 
-    /** Called when the app stops being visible. */
+    /**
+     * Called when the app stops being visible.
+     *
+     * Abandons the scan rather than letting it continue. Every health check
+     * depends on a connection surviving a deliberate silence, and Doze suspends
+     * the process's network and resets quiet sockets — so a scan that carries on
+     * in the background keeps probing and keeps failing every stability check,
+     * reporting zero clean IPs on a network that has plenty. Results already
+     * found were measured in the foreground and are kept.
+     */
     fun onEnteredBackground() {
-        if (isScanning) interrupted = true
+        if (!isScanning) return
+        interrupted = true
+        scanJob?.cancel()
+        scanJob = null
+        update { it.copy(phase = ScanPhase.INTERRUPTED) }
     }
 
     val isScanning: Boolean get() = _state.value.isScanning

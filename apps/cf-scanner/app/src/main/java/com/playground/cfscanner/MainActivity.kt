@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -138,6 +139,17 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
                         emptyAdapter.show(
                             EmptyStateRules.contentFor(state.phase, state.resultCount),
                         )
+                        // Driven by state rather than toggled at start/stop, so
+                        // the flag cannot be left held by a path that forgot to
+                        // clear it.
+                        window.setFlags(
+                            if (state.shouldKeepScreenOn) {
+                                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                            } else {
+                                0
+                            },
+                            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+                        )
                         announceIfInterrupted(state)
                     }
                 }
@@ -149,13 +161,15 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
     }
 
     /**
-     * Notes that the app is no longer visible.
+     * Stops the scan when the app is no longer visible.
      *
-     * The scan keeps running — it takes minutes, and stopping it whenever the
-     * user glances at a notification would defeat the point. But Android may
-     * throttle network access for a background process, and probes deferred that
-     * way are recorded as packet loss, so the ViewModel remembers that this
-     * scan's measurements are not wholly trustworthy.
+     * It used to keep running, on the reasoning that a scan takes minutes and
+     * should survive a glance at a notification. That was wrong: the probe judges
+     * an IP by whether its connection survives a deliberate silence, and Doze
+     * suspends the process's network and resets quiet sockets. So a background
+     * scan kept advancing its counter while failing every stability check —
+     * reporting no clean IPs on a network full of them. Stopping is the honest
+     * outcome; results found while visible are kept.
      */
     override fun onStop() {
         // isChangingConfigurations excludes a rotation or language switch, where
@@ -163,6 +177,10 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
         // leaves the foreground — flagging those would warn about an
         // interruption that did not happen.
         if (!isChangingConfigurations) viewModel.onEnteredBackground()
+        // Cleared here as well as from state: the state collector runs only while
+        // STARTED, so it never observes the transition out of it and would leave
+        // the flag held on a screen nobody is looking at.
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         super.onStop()
     }
 
@@ -170,21 +188,21 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
     private var interruptionNoticeShown = false
 
     /**
-     * Warns once when a completed scan ran partly in the background.
+     * Explains once why a scan ended early.
      *
-     * Those probes may have been throttled by the system, so a good address can
-     * look lossy. Saying so is more honest than silently ranking on it.
+     * The empty state covers the case where nothing was found, but a scan that
+     * had already collected results shows a list and no explanation for why it
+     * stopped — so it is said out loud here too.
      */
     private fun announceIfInterrupted(state: HeaderState) {
         if (state.isScanning) {
             interruptionNoticeShown = false
             return
         }
-        if (state.phase != ScanPhase.FINISHED) return
-        if (!viewModel.measurementInterrupted || interruptionNoticeShown) return
+        if (state.phase != ScanPhase.INTERRUPTED || interruptionNoticeShown) return
 
         interruptionNoticeShown = true
-        snack(getString(R.string.scan_interrupted_warning))
+        snack(getString(R.string.interrupted_notice))
     }
 
     // region header callbacks

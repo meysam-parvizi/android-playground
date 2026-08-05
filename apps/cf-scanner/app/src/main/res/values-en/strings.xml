@@ -91,7 +91,6 @@
     <!-- Rank metadata, also reused in the spoken row description. -->
     <string name="result_rank">Rank %1$s</string>
 
-    <string name="scan_interrupted_warning">The app was in the background during part of this scan, so some results may be understated. Rescan for accurate figures.</string>
 
     <!-- Shown in the toolbar. Separate from app_name, which labels the
          launcher icon and must stay short enough not to be truncated. -->
@@ -116,4 +115,8 @@
     <string name="save_hint_detailed">Saved in English with all test measurements, whatever the app language</string>
     <string name="save_done">Saved %1$s results</string>
     <string name="save_failed">Could not save the file</string>
+    <string name="status_interrupted">Scan interrupted</string>
+    <string name="empty_interrupted">Scan stopped when the app was closed</string>
+    <string name="empty_interrupted_hint">Testing whether an IP stays connected needs the app open, so the scan stops instead of reporting results it cannot trust. Keep it on screen and scan again.</string>
+    <string name="interrupted_notice">Scan stopped: it only runs while the app is open</string>
 </resources>

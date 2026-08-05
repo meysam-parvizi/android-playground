@@ -157,6 +157,37 @@ class ResultExportDetailedTest {
         assertEquals("exported grades must use the same score bands", uiBands, exportBands)
     }
 
+    @Test
+    fun theFileParsesBackIntoTheSameValues() {
+        // The point of the format is that a tool can read it. Parse it back and
+        // compare against the source objects, rather than trusting that a header
+        // and some tabs are enough.
+        val results = listOf(
+            result("104.16.1.1", rttUs = 23_000, colo = "VIE", speed = 2_000_000, benchBytes = 512 * 1024),
+            result("104.16.1.2", rttUs = 45_000, colo = "FRA"),
+        )
+
+        val lines = ResultExport.detailed(results).lines()
+        val header = lines.first { !it.startsWith("#") && it.isNotBlank() }.split("\t")
+        val rows = lines.dropWhile { it != header.joinToString("\t") }.drop(1)
+            .filter { it.isNotBlank() }
+            .map { header.zip(it.split("\t")).toMap() }
+
+        assertEquals(2, rows.size)
+        assertEquals(results.map { it.ip }, rows.map { it["ip"] })
+        assertEquals(listOf("1", "2"), rows.map { it["rank"] })
+        assertEquals(listOf("VIE", "FRA"), rows.map { it["datacenter"] })
+        assertEquals(
+            results.map { it.avgMs().toString() },
+            rows.map { it["ping_ms"] },
+        )
+        assertEquals("16.0", rows[0]["speed_mbps"])
+        assertEquals("-", rows[1]["speed_mbps"])
+        // Every row must have a value in every column, or a parser silently
+        // shifts fields.
+        for (row in rows) assertEquals(header.size, row.size)
+    }
+
     // --- the plain mode is unchanged ---------------------------------------
 
     @Test

@@ -21,6 +21,17 @@ enum class ScanPhase {
     /** The user stopped the scan early. */
     STOPPED,
 
+    /**
+     * The scan was abandoned because the app left the foreground.
+     *
+     * Distinct from [STOPPED]: the user pressed nothing. Results measured before
+     * this point are valid and kept; the remainder is discarded rather than
+     * recorded, because a probe's health checks depend on a connection surviving
+     * a deliberate silence and Doze resets quiet sockets — the readings would
+     * describe Android's power management, not the addresses.
+     */
+    INTERRUPTED,
+
     /** The scan failed, e.g. no connectivity. */
     ERROR,
 }
@@ -58,6 +69,10 @@ object EmptyStateRules {
             ScanPhase.STOPPED -> EmptyContent(
                 R.string.empty_stopped,
                 R.string.empty_stopped_hint,
+            )
+            ScanPhase.INTERRUPTED -> EmptyContent(
+                R.string.empty_interrupted,
+                R.string.empty_interrupted_hint,
             )
             ScanPhase.ERROR -> EmptyContent(
                 R.string.empty_error,
@@ -109,6 +124,16 @@ data class HeaderState(
     val requested: Int = 0,
 ) {
     val isScanning: Boolean get() = phase == ScanPhase.SCANNING
+
+    /**
+     * Whether the screen should be held awake.
+     *
+     * Only while a scan runs. The probe's stability checks need the radio alive
+     * and quiet sockets intact, which Doze does not allow, so the screen staying
+     * on is what makes the measurements mean anything. Released as soon as the
+     * scan ends so nobody's battery pays for an idle app.
+     */
+    val shouldKeepScreenOn: Boolean get() = isScanning
 
     /** Progress as a percentage, clamped for display. */
     val progressPercent: Int
