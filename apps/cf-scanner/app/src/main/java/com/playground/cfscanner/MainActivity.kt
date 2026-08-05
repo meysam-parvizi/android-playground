@@ -58,8 +58,15 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
         super.attachBaseContext(wrapped)
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(KEY_PENDING_SAVE_DETAILED, pendingSaveDetailed)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        pendingSaveDetailed =
+            savedInstanceState?.getBoolean(KEY_PENDING_SAVE_DETAILED) ?: false
 
         // Taken from the resolved configuration rather than the stored preference,
         // so digit shapes always agree with the text on screen. Reading the stored
@@ -278,8 +285,9 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
      * Which export the user chose, held across the file-picker round trip.
      *
      * The system picker is another activity, so the choice cannot travel with the
-     * intent. Defaulting to the plain list means a restored-process edge case
-     * writes addresses rather than nothing.
+     * intent. Saved into the instance state as well, because the picker can
+     * outlive this process on a memory-constrained device — without that, a
+     * restored activity would silently write the other format.
      */
     private var pendingSaveDetailed = false
 
@@ -397,5 +405,7 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
     private companion object {
         /** Scan sizes offered in the dropdown, smallest first. */
         val COUNT_OPTIONS = listOf(100, 200, 300, 500, 800)
+
+        private const val KEY_PENDING_SAVE_DETAILED = "pending_save_detailed"
     }
 }
