@@ -112,4 +112,11 @@
     <string name="speed_size_kb">%1$s KB</string>
     <string name="speed_size_mb">%1$s MB</string>
     <string name="hint_speed_test">Runs after the scan on every healthy result. A bigger download measures speed more accurately and counts for more in the score, but uses more data.</string>
+    <string name="action_save">Save</string>
+    <string name="save_dialog_title">Save results</string>
+    <string name="save_option_ips">IP addresses only</string>
+    <string name="save_option_detailed">IP addresses with full details</string>
+    <string name="save_hint_detailed">Saved in English with all test measurements, whatever the app language</string>
+    <string name="save_done">Saved %1$s results</string>
+    <string name="save_failed">Could not save the file</string>
 </resources>

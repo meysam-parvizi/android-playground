@@ -34,6 +34,8 @@ class HeaderAdapter(
     interface Callbacks {
         fun onScanToggle()
         fun onCopy()
+
+        fun onSave()
         fun onCountSelected(index: Int)
         fun onSortSelected(index: Int)
         fun onSpeedTestToggled(enabled: Boolean)
@@ -74,6 +76,7 @@ class HeaderAdapter(
         val progressBar: LinearProgressIndicator = view.findViewById(R.id.progressBar)
         val scanButton: MaterialButton = view.findViewById(R.id.scanButton)
         val copyButton: MaterialButton = view.findViewById(R.id.copyButton)
+        val saveButton: MaterialButton = view.findViewById(R.id.saveButton)
         val countInput: MaterialAutoCompleteTextView = view.findViewById(R.id.countInput)
         val sortInput: MaterialAutoCompleteTextView = view.findViewById(R.id.sortInput)
         val speedTestSwitch: MaterialSwitch = view.findViewById(R.id.speedTestSwitch)
@@ -141,6 +144,7 @@ class HeaderAdapter(
 
         holder.scanButton.setOnClickListener { callbacks.onScanToggle() }
         holder.copyButton.setOnClickListener { callbacks.onCopy() }
+        holder.saveButton.setOnClickListener { callbacks.onSave() }
         holder.iranModeSwitch.setOnCheckedChangeListener { _, checked ->
             // Guarded by a flag rather than by View.isPressed. isPressed is only
             // true for a physical touch, so a TalkBack double-tap, a keyboard or
@@ -232,6 +236,7 @@ class HeaderAdapter(
         )
 
         holder.copyButton.isEnabled = s.resultCount > 0
+        holder.saveButton.isEnabled = s.resultCount > 0
 
         holder.resultsHeader.text = if (s.resultCount > 0) {
             ctx.getString(R.string.label_results_count, Format.number(s.resultCount))

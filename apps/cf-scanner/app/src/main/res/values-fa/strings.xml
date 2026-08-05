@@ -146,4 +146,11 @@
     <string name="speed_size_kb">%1$s کیلوبایت</string>
     <string name="speed_size_mb">%1$s مگابایت</string>
     <string name="hint_speed_test">بعد از پایان اسکن روی همه‌ی نتایج سالم اجرا می‌شود. حجم دانلود بیشتر، سرعت را دقیق‌تر می‌سنجد و در امتیاز وزن بیشتری می‌گیرد، اما دیتای بیشتری مصرف می‌کند.</string>
+    <string name="action_save">ذخیره</string>
+    <string name="save_dialog_title">ذخیره‌ی نتایج</string>
+    <string name="save_option_ips">فقط آی‌پی‌ها</string>
+    <string name="save_option_detailed">آی‌پی‌ها با جزئیات کامل</string>
+    <string name="save_hint_detailed">مستقل از زبان برنامه، به انگلیسی و همراه با همه‌ی نتایج تست ذخیره می‌شود</string>
+    <string name="save_done">%1$s نتیجه ذخیره شد</string>
+    <string name="save_failed">فایل ذخیره نشد</string>
 </resources>

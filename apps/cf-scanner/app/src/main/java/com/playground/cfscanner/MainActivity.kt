@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Lifecycle
@@ -223,6 +224,35 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
         snack(getString(R.string.toast_copied, Format.number(items.size)))
     }
 
+    override fun onSave() {
+        if (viewModel.results.value.isEmpty()) {
+            snack(getString(R.string.toast_nothing))
+            return
+        }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.save_dialog_title)
+            .setItems(
+                arrayOf(
+                    getString(R.string.save_option_ips),
+                    getString(R.string.save_option_detailed),
+                ),
+            ) { _, which ->
+                // Remembered until the picker returns: the system file dialog is
+                // a separate activity, so the choice cannot be passed through it.
+                pendingSaveDetailed = which == 1
+                val name = if (pendingSaveDetailed) "cf-scan-details.txt" else "cf-clean-ips.txt"
+                try {
+                    createDocument.launch(name)
+                } catch (_: Exception) {
+                    // No document provider on the device; nothing was written.
+                    snack(getString(R.string.save_failed))
+                }
+            }
+            .setNegativeButton(R.string.about_close, null)
+            .show()
+    }
+
     override fun onCountSelected(index: Int) = viewModel.setCount(index)
 
     override fun onSortSelected(index: Int) = viewModel.setSort(index)
@@ -242,6 +272,46 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
     private fun copySingle(r: ScanResult) {
         copyToClipboard(r.ip)
         snack(getString(R.string.toast_copied_one, Format.ip(r.ip)))
+    }
+
+    /**
+     * Which export the user chose, held across the file-picker round trip.
+     *
+     * The system picker is another activity, so the choice cannot travel with the
+     * intent. Defaulting to the plain list means a restored-process edge case
+     * writes addresses rather than nothing.
+     */
+    private var pendingSaveDetailed = false
+
+    /**
+     * Writes the results to a location the user picks.
+     *
+     * Uses the Storage Access Framework rather than a path plus a storage
+     * permission: the user names the destination themselves, the app needs no
+     * permission at all, and it works on every version this app supports.
+     */
+    private val createDocument = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("text/plain"),
+    ) { uri ->
+        // Null means the user backed out, which is not a failure worth reporting.
+        if (uri == null) return@registerForActivityResult
+
+        val items = viewModel.results.value
+        val text = if (pendingSaveDetailed) {
+            ResultExport.detailed(items)
+        } else {
+            ResultExport.ipList(items)
+        }
+
+        try {
+            contentResolver.openOutputStream(uri)?.use { out ->
+                out.write(text.toByteArray(Charsets.UTF_8))
+            } ?: throw java.io.IOException("no stream")
+            snack(getString(R.string.save_done, Format.number(items.size)))
+        } catch (_: Exception) {
+            // Reported rather than swallowed: the user believes a file exists.
+            snack(getString(R.string.save_failed))
+        }
     }
 
     private fun copyToClipboard(text: String) {
