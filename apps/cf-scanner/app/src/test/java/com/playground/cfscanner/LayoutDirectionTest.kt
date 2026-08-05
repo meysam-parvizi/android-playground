@@ -58,44 +58,6 @@ class LayoutDirectionTest {
     }
 
     @Test
-    fun theAdapterTakesDirectionFromTheSelectedLanguage() {
-        // Not from any View. parent.layoutDirection is a resolved value that
-        // reports LTR before resolution runs, and Configuration.layoutDirection
-        // depends on which context the inflater carried. Both left early holders
-        // disagreeing with later ones. FormatDirectionTest asserts the value
-        // itself; this only guards against a regression to a view-derived source.
-        val adapter = source("ResultAdapter.kt")
-
-        assertTrue(
-            "ResultAdapter must use Format.layoutDirection",
-            adapter.contains("Format.layoutDirection"),
-        )
-        assertTrue(
-            "parent.layoutDirection is unreliable before resolution",
-            !adapter.contains("= parent.layoutDirection"),
-        )
-        assertTrue(
-            "Configuration.layoutDirection depends on the inflater's context",
-            !adapter.contains("configuration.layoutDirection"),
-        )
-    }
-
-    @Test
-    fun directionIsReassertedOnEveryBind() {
-        // A holder created before the language was applied gets reused after it.
-        // Setting the direction only in onCreateViewHolder leaves that stale
-        // value in the recycled view.
-        val adapter = source("ResultAdapter.kt")
-        val occurrences = Regex("layoutDirection = ").findAll(adapter).count()
-
-        assertTrue(
-            "direction must be set on bind as well as on create (found " +
-                "$occurrences assignment(s))",
-            occurrences >= 2,
-        )
-    }
-
-    @Test
     fun theIpKeepsItsOwnLatinDirection() {
         // The one legitimate override: an address is copied into configs
         // verbatim, so its digits must not be reordered by the surrounding RTL

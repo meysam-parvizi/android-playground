@@ -43,6 +43,7 @@ class EmptyStateAdapter : RecyclerView.Adapter<EmptyStateAdapter.Holder>() {
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
         val v = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_empty_state, parent, false)
+        Format.applyDirection(v)
         return Holder(v)
     }
 

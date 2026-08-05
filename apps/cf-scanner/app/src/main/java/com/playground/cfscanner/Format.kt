@@ -61,6 +61,28 @@ object Format {
     val layoutDirection: Int
         get() = if (locale.isRightToLeft) LAYOUT_DIRECTION_RTL else LAYOUT_DIRECTION_LTR
 
+    /**
+     * Forces [view] and everything inside it onto the language's direction.
+     *
+     * Needed because `setLayoutDirection` only invalidates resolution when the
+     * value differs from the current *raw* value. Children inherit, so their raw
+     * value never changes and they keep whatever they resolved earlier — while
+     * detached, in a RecyclerView's case. Setting the direction on an item root
+     * alone therefore leaves a stale subtree, which is why a mirrored card
+     * corrected itself later once some other pass re-resolved it.
+     *
+     * Measured, not assumed: a mirrored card reported the language as RTL and
+     * its own direction as RTL while its inner ConstraintLayout was still LTR.
+     */
+    fun applyDirection(view: android.view.View) {
+        // Assigned unconditionally: guarding on view.layoutDirection reads the
+        // resolved value, which is the field that lies here.
+        view.layoutDirection = layoutDirection
+        if (view is android.view.ViewGroup) {
+            for (i in 0 until view.childCount) applyDirection(view.getChildAt(i))
+        }
+    }
+
     /** Mirrors View.LAYOUT_DIRECTION_LTR without depending on the framework. */
     const val LAYOUT_DIRECTION_LTR = 0
 

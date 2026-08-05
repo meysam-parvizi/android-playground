@@ -69,15 +69,7 @@ class ResultAdapter(
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
         val v = LayoutInflater.from(parent.context).inflate(R.layout.item_result, parent, false)
 
-        // Direction comes from the selected language, not from any View.
-        //
-        // Two view-derived sources were tried and both failed: parent
-        // .layoutDirection is a *resolved* value that reports LTR before
-        // resolution runs, and Configuration.layoutDirection depends on which
-        // context the inflater happened to carry. Both left the first holders
-        // disagreeing with later ones, so direction tracked scroll position.
-        // Format.layoutDirection is set before any view exists.
-        v.layoutDirection = Format.layoutDirection
+        Format.applyDirection(v)
         return Holder(v)
     }
 
@@ -102,10 +94,7 @@ class ResultAdapter(
         val r = items[position]
         val ctx = holder.itemView.context
 
-        // Reasserted on every bind, not just on creation. A holder created
-        // before the language was applied is reused afterwards, and a stale
-        // direction would otherwise survive in the recycled view.
-        holder.itemView.layoutDirection = Format.layoutDirection
+        Format.applyDirection(holder.itemView)
         val score = r.score()
         val scoreTextColour = themeColour(
             ctx, com.google.android.material.R.attr.colorOnSurface,
