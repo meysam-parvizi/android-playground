@@ -282,9 +282,29 @@ class MainActivity : AppCompatActivity(), HeaderAdapter.Callbacks {
             .show()
     }
 
+    /**
+     * The installed version name.
+     *
+     * Read from the package manager rather than BuildConfig: it reports what is
+     * actually installed on the device, and it avoids enabling the buildConfig
+     * feature (which adds a javac step to an otherwise pure-Kotlin module).
+     * Falls back to empty rather than crashing the dialog, since a missing
+     * version string is a cosmetic loss.
+     */
+    private fun appVersionName(): String = try {
+        packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
+    } catch (_: Exception) {
+        ""
+    }
+
     private fun showAbout() {
         MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.about_title)
+            // The version belongs in the title, where it is visible without
+            // scrolling a long dialog, and it is read from BuildConfig so it can
+            // never disagree with the APK the user actually installed.
+            .setTitle(
+                getString(R.string.about_title_versioned, Format.isolate(appVersionName())),
+            )
             .setMessage(R.string.about_body)
             .setPositiveButton(R.string.about_close, null)
             .show()

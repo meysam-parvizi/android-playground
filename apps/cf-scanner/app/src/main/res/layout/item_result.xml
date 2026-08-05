@@ -64,6 +64,7 @@
         -->
         <TextView
             android:id="@+id/rowScore"
+            android:textDirection="locale"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:minWidth="60dp"
@@ -81,6 +82,7 @@
         <!-- Metadata stays out of the primary line, so neither field can collide. -->
         <TextView
             android:id="@+id/rowRank"
+            android:textDirection="locale"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/space_xs"
@@ -91,6 +93,7 @@
 
         <TextView
             android:id="@+id/rowContext"
+            android:textDirection="locale"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="@dimen/space_s"
@@ -107,6 +110,7 @@
         -->
         <TextView
             android:id="@+id/rowPing"
+            android:textDirection="locale"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/space_m"
@@ -127,6 +131,7 @@
 
         <TextView
             android:id="@+id/rowJitter"
+            android:textDirection="locale"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:gravity="center"
@@ -144,6 +149,7 @@
 
         <TextView
             android:id="@+id/rowLoss"
+            android:textDirection="locale"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:gravity="center"
@@ -161,6 +167,7 @@
 
         <TextView
             android:id="@+id/rowSpeed"
+            android:textDirection="locale"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:gravity="center"

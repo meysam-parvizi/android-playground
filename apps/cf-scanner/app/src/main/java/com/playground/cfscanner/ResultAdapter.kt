@@ -215,7 +215,15 @@ class ResultAdapter(
     }
 
     /** Datacenter code shown as secondary metadata below the address. */
-    private fun contextLine(r: ScanResult): CharSequence = r.colo
+    /**
+     * The datacenter code, isolated.
+     *
+     * A bare "VIE" is pure Latin, so an unisolated run lets the bidi algorithm
+     * reorder it against the Persian text beside it. Format.isolate wraps it in
+     * FSI/PDI so the code renders as one unit wherever it sits.
+     */
+    private fun contextLine(r: ScanResult): CharSequence =
+        if (r.colo.isEmpty()) "" else Format.isolate(r.colo)
 
     /** Resolves a colour from the current theme so it follows light/dark. */
     private fun themeColour(ctx: Context, attr: Int): Int {

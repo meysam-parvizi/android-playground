@@ -65,6 +65,27 @@ class LayoutDirectionTest {
     }
 
     @Test
+    fun everyTextViewInACardDeclaresItsDirection() {
+        // layoutDirection on the root fixes the *container*, but each TextView
+        // still resolves its own text direction from content. The datacenter
+        // line holds a bare Latin code like "VIE", so without a declaration it
+        // resolves LTR and drags its constraint chain with it — which is the
+        // per-card flipping that survived two attempted fixes.
+        val text = layout("item_result.xml")
+        val views = Regex("<TextView(.*?)/>", RegexOption.DOT_MATCHES_ALL)
+            .findAll(text).map { it.groupValues[1] }.toList()
+
+        assertTrue("expected the card to contain TextViews", views.isNotEmpty())
+        for (v in views) {
+            val id = Regex("android:id=\"@\\+id/(\\w+)\"").find(v)?.groupValues?.get(1) ?: "?"
+            assertTrue(
+                "$id must declare android:textDirection, or its content decides it",
+                v.contains("android:textDirection="),
+            )
+        }
+    }
+
+    @Test
     fun persianTextIsIsolatedFromLatinNeighbours() {
         // Format.isolate wraps a run in FSI/PDI so a Latin token inside Persian
         // text cannot reorder the sentence around it.
